@@ -157,8 +157,8 @@ onValue(cfgRef, s=>{
   const c=s.val()||{};
   $('upd').textContent = c.updatedAt ? new Date(c.updatedAt).toLocaleString('zh-TW') : '尚未設定';
   if(loaded) return; loaded=true;
-  $('yt').value=c.yt||''; $('demoYt').value=c.demoYt||'';
-  $('demoStart').value = c.demoStart ? fmt(c.demoStart) : '0'; $('demoStep').value = c.demoStep||25;
+  $('yt').value=c.yt||''; $('demoYt').value=c.demoYt||'https://www.youtube.com/watch?v=jKq4Ii_NE64';
+  $('demoStart').value = fmt(c.demoStart!=null?c.demoStart:4333); $('demoStep').value = c.demoStep||25;
   embed($('ytPrev'), $('yt').value); demoPreview();
 });
 

@@ -241,8 +241,9 @@ var DEFAULT_FB='https://ncku-baseball-live-default-rtdb.asia-southeast1.firebase
 var QS=new URLSearchParams(location.search);
 var DEFAULT_DEMO_YT='jKq4Ii_NE64';   /* 管理頁還沒設定 DEMO 影片時，預設播義守第 1 段 */
 function demoVid(){ return S.mode==='demo'?ytId(S.remote.demoYt||S.site.demoYt||DEFAULT_DEMO_YT):''; }
-function demoStep(){ var n=+S.remote.demoStep; return n>0?n:25; }
-function demoT(){ return Math.max(0,(+S.remote.demoStart||0)+(S.demo?S.demo.i:0)*demoStep()); }
+function demoCfg(k){ return S.remote[k]!=null&&S.remote[k]!==''?S.remote[k]:S.site[k]; }
+function demoStep(){ var n=+demoCfg('demoStep'); return n>0?n:25; }
+function demoT(){ return Math.max(0,(+demoCfg('demoStart')||0)+(S.demo?S.demo.i:0)*demoStep()); }
 function curYt(){ return demoVid()||QS.get('v')||S.cfg.ytTest||S.remote.yt||S.site.yt||''; }
 function reloadVideoIf(old){ if(curYt()!==old){ var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; render(); } }
 function demoSeek(){ if(!demoVid()||!S.yt||!S.yt.seekTo) return; try{ var t=demoT(); if(Math.abs((S.yt.getCurrentTime()||0)-t)>2) S.yt.seekTo(t,true); }catch(e){} }

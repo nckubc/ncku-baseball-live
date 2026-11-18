@@ -239,7 +239,8 @@ if(!S.cfg.api) S.cfg.api=DEFAULT_API;
 S.site={}; S.remote={}; S.cfgEs=null;
 var DEFAULT_FB='https://ncku-baseball-live-default-rtdb.asia-southeast1.firebasedatabase.app';
 var QS=new URLSearchParams(location.search);
-function demoVid(){ return S.mode==='demo'?ytId(S.remote.demoYt||''):''; }
+var DEFAULT_DEMO_YT='jKq4Ii_NE64';   /* 管理頁還沒設定 DEMO 影片時，預設播義守第 1 段 */
+function demoVid(){ return S.mode==='demo'?ytId(S.remote.demoYt||S.site.demoYt||DEFAULT_DEMO_YT):''; }
 function demoStep(){ var n=+S.remote.demoStep; return n>0?n:25; }
 function demoT(){ return Math.max(0,(+S.remote.demoStart||0)+(S.demo?S.demo.i:0)*demoStep()); }
 function curYt(){ return demoVid()||QS.get('v')||S.cfg.ytTest||S.remote.yt||S.site.yt||''; }

@@ -159,6 +159,9 @@ input,select{font:inherit;}
 .sheet h3{margin:0 0 4px;font-size:19px;}
 .sheet .sub{color:var(--muted);font-size:13px;margin-bottom:12px;}
 .sheet .pintro{background:var(--panel2);border-radius:10px;padding:8px 12px;margin:-4px 0 12px;font-size:14px;line-height:1.5;}
+.hrchip{display:inline-block;vertical-align:middle;margin-left:8px;padding:1px 9px;border-radius:999px;background:var(--acc);color:#fff;font-size:12px;font-weight:800;}
+.kv .hl{box-shadow:inset 0 0 0 1.5px var(--acc);}
+.kv .hl .v{color:var(--acc-l);}
 .sheet .pintro .dept{font-size:12.5px;color:var(--muted);}
 .sheet .pintro .intro{font-size:15px;font-weight:700;color:var(--gold);}
 .bigbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -743,12 +746,13 @@ function renderSheet(){
     var x=situation(), team=x?(x.g.teams[x.ourSide]||{}):{}, p=((team.lineup||[]).concat(team.bench||[])).find(function(q){return q&&q.name===sh.name;})||{name:sh.name};
     var tb=todayBat(sh.name), tp=todayPit(sh.name), rc=rocketCounts().to[sh.name]||0;
     h+='<h3>'+(dispNum(p)?'#'+esc(dispNum(p))+' ':'')+esc(sh.name)+'</h3><div class="sub">'+esc(POS_LABEL[p.pos]||p.pos||'')+(tb.pas.length?' · 今日 '+tb.txt:'')+(tp.n?' · 今日 '+tp.n+' 球':'')+(rc?' · 🚀×'+rc:'')+'</div>';
-    var pi=pinfo(sh.name); if(pi&&(pi.dept||pi.school||pi.intro)) h+='<div class="pintro">'+((pi.dept||pi.school)?'<div class="dept">'+esc([pi.dept,pi.school].filter(Boolean).join(' · '))+'</div>':'')+(pi.intro?'<div class="intro">'+esc(pi.intro)+'</div>':'')+'</div>';
+    var pi=pinfo(sh.name); if(pi&&pi.hr) h=h.replace('</h3>','<span class="hrchip">本季 '+pi.hr+' 轟</span></h3>');
+    if(pi&&(pi.dept||pi.school||pi.intro)) h+='<div class="pintro">'+((pi.dept||pi.school)?'<div class="dept">'+esc([pi.dept,pi.school].filter(Boolean).join(' · '))+'</div>':'')+(pi.intro?'<div class="intro">'+esc(pi.intro)+'</div>':'')+'</div>';
     if(!sh.view){
       h+='<div class="bigbtns"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
     } else {
       var st=(pinfo(sh.name)||{}).stats||null, meta=PLAYERS._stats||{};
-      function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }
+      function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div'+(k==='全壘打'&&+o[k]>0?' class="hl"':'')+'><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }
       if(tb.pas.length) h+='<div class="muted">今日打席</div><div class="palist">'+tb.pas.map(function(r,i){return '<div><span>第 '+(i+1)+' 打席（'+r.inn+'局）</span><b>'+esc(outLabel(r))+'</b></div>';}).join('')+'</div>';
       if(tp.n) h+='<div class="muted" style="margin-top:8px">今日投球</div><div class="kv"><div><div class="k">用球數</div><div class="v">'+tp.n+'</div></div><div><div class="k">三振</div><div class="v">'+tp.k+'</div></div></div>';
       /* 打擊、投球都有的球員：看他今天登錄的守位，投手看投球，其他看打擊 */

@@ -214,7 +214,11 @@ if(!S.cfg.api) S.cfg.api=DEFAULT_API;
 S.site={};
 var QS=new URLSearchParams(location.search);
 function curYt(){ return QS.get('v')||S.cfg.ytTest||S.site.yt||''; }
-function wantSrc(){ if(QS.get('demo')==='1') return 'demo'; return S.cfg.srcTest||S.site.source||'live'; }
+/* 正常一律讀即時資料；DEMO 只能用隱藏方式開啟：在比分（或標題）上 1.5 秒內連點 5 下，或網址加 ?demo=1 */
+function wantSrc(){ return QS.get('demo')==='1'?'demo':'live'; }
+var secretTaps=[];
+function secretTap(){ var now=Date.now(); secretTaps=secretTaps.filter(function(t){return now-t<1500;}); secretTaps.push(now); if(secretTaps.length>=5){ secretTaps=[]; if(S.mode==='demo') exitDemo(); else { startDemo(); toast('DEMO 模式'); } } }
+function exitDemo(){ stopAll(); S.demo=null; S.cur=null; S.hist=[]; S.model=null; S.log=[]; S.lastEvN=-1; S.sheet=null; var app=document.getElementById('app'); app.dataset.built=''; startLive(); render(); }
 function loadSite(first){
   return fetch('config.json?x='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; }).then(function(o){
     var oldYt=curYt(), oldSrc=wantSrc(); S.site=o||{}; if(S.site.api) S.cfg.api=S.site.api;
@@ -505,13 +509,13 @@ function shell(){
 function scorebar(){
   var x=situation();
   var gear='<span class="sp"></span><button class="iconbtn" data-act="settings" title="設定">⚙</button>';
-  if(!x){ return '<b>成大棒球 線上觀賽</b><span class="muted">'+(S.mode==='live'?(S.live.err?'連線問題：'+esc(S.live.err):'連線中…'):'尚未連到比賽')+'</span>'+gear; }
+  if(!x){ return '<b data-act="secret">成大棒球 線上觀賽</b><span class="muted">'+(S.mode==='live'?(S.live.err?'連線問題：'+esc(S.live.err):'連線中…'):'尚未連到比賽')+'</span>'+gear; }
   var st=x.st, ours=x.names[x.ourSide], opp=x.names[x.ourSide==='home'?'away':'home'], oppSide=x.ourSide==='home'?'away':'home';
   var outs=''; for(var i=0;i<3;i++) outs+='<i'+(i<(st.outs||0)?' class="on"':'')+'></i>';
   var b=x.bases, dia='<span class="dia"><i class="b2'+(b.indexOf('2')>=0?' on':'')+'"></i><i class="b3'+(b.indexOf('3')>=0?' on':'')+'"></i><i class="b1'+(b.indexOf('1')>=0?' on':'')+'"></i></span>';
   var bl=x.batter?todayBat(x.batter.name):null, pt=x.pitcher?todayPit(x.pitcher.name):null;
   return '<span class="sbside'+(x.weBat?'':' def')+'">'+(x.weBat?'成大進攻':'成大守備')+'</span>'+
-    '<span class="score">'+esc(ours)+' '+x.score[x.ourSide]+' : '+x.score[oppSide]+' '+esc(opp)+'</span>'+
+    '<span class="score" data-act="secret">'+esc(ours)+' '+x.score[x.ourSide]+' : '+x.score[oppSide]+' '+esc(opp)+'</span>'+
     '<span class="pill">'+(st.inning||1)+(st.half==='top'?'上':'下')+'</span><span class="outs">'+outs+'</span>'+
     '<span class="pill">'+(st.balls||0)+'B '+(st.strikes||0)+'S</span>'+dia+gear+
     '<span class="who">打者 <b>'+(x.batter?(dispNum(x.batter)?'#'+esc(dispNum(x.batter))+' ':'')+esc(x.batter.name):'—')+'</b>'+(bl?' 今日 '+bl.txt:'')+
@@ -523,7 +527,7 @@ function demobar(){
   var d=S.demo, fr=d.frames[d.i];
   return '<b>DEMO</b><span>'+(d.i+1)+'/'+d.frames.length+'</span><span class="cap">'+esc(fr.cap||'')+'</span>'+
     '<button data-act="prev"'+(d.i===0?' disabled':'')+'>◀</button><button data-act="next"'+(d.i===d.frames.length-1?' disabled':'')+'>下一球 ▶</button>'+
-    '<button data-act="auto">'+(S.autoTimer?'⏸ 自動':'▶ 自動')+'</button><button data-act="bots">'+(S.bots?'模擬觀眾 開':'模擬觀眾 關')+'</button>';
+    '<button data-act="auto">'+(S.autoTimer?'⏸ 自動':'▶ 自動')+'</button><button data-act="bots">'+(S.bots?'模擬觀眾 開':'模擬觀眾 關')+'</button><button data-act="exitDemo">離開 DEMO</button>';
 }
 function renderSide(){
   var el=document.getElementById('side'); if(!el) return;
@@ -614,7 +618,6 @@ function renderSheet(){
       '<div class="fieldrow">暱稱<input id="cf-nick" maxlength="12" value="'+esc(c.nick||'')+'" placeholder="例如：成大校友"></div>'+
       '<details style="margin-bottom:10px"><summary class="muted">進階（測試用）</summary><div style="margin-top:8px">'+
       '<div class="fieldrow">測試用直播網址（留空＝使用官方設定'+(S.site.yt?'':'，目前官方尚未設定')+'）<input id="cf-yt" value="'+esc(c.ytTest||'')+'" placeholder="https://www.youtube.com/live/xxxxxxxxxxx"></div>'+
-      '<div class="fieldrow">比賽資料來源<select id="cf-src"><option value=""'+(!c.srcTest?' selected':'')+'>使用官方設定</option><option value="demo"'+(c.srcTest==='demo'?' selected':'')+'>DEMO（義守 10 球劇本）</option><option value="live"'+(c.srcTest==='live'?' selected':'')+'>即時（雲端最新一場）</option></select></div>'+
       '<div class="fieldrow">雲端網址（Apps Script）<input id="cf-api" value="'+esc(c.api||'')+'"></div></div></details>'+
       '<p class="muted">雛形的多人同步只在「同一台電腦的多個分頁」之間有效。開兩個分頁、取不同暱稱，就能模擬兩位觀眾。</p>'+
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveCfg">儲存</button></div>';
@@ -641,6 +644,8 @@ function askNick(cb){ nickCb=cb; S.sheet={type:'nick'}; renderSheet(); }
 document.addEventListener('click',function(ev){
   var t=ev.target.closest('[data-act]'); if(!t) return; var a=t.dataset.act;
   if(a==='send') send();
+  else if(a==='secret') secretTap();
+  else if(a==='exitDemo') exitDemo();
   else if(a==='tab'){ S.tab=t.dataset.v; render(); if(S.tab==='chat'){ var b=document.getElementById('msgs'); b.scrollTop=b.scrollHeight; } }
   else if(a==='player'){ S.sheet={type:'player', name:t.dataset.name, view:null}; renderSheet(); }
   else if(a==='pstats'){ S.sheet.view='stats'; renderSheet(); }
@@ -652,9 +657,9 @@ document.addEventListener('click',function(ev){
   else if(a==='saveNick'){ var v=(document.getElementById('nick-in').value||'').trim().slice(0,12); if(!v) return; S.cfg.nick=v; saveJSON(CFG_KEY,S.cfg); S.sheet=null; renderSheet(); var ci=document.getElementById('chat-in'); if(ci) ci.placeholder='以「'+v+'」留言…'; var cb=nickCb; nickCb=null; if(cb) cb(); }
   else if(a==='saveCfg'){
     var oldYt=curYt(), oldSrc=wantSrc(); S.cfg.ytTest=document.getElementById('cf-yt').value.trim(); var nk=document.getElementById('cf-nick').value.trim().slice(0,12); if(nk) S.cfg.nick=nk;
-    S.cfg.api=document.getElementById('cf-api').value.trim()||S.site.api||DEFAULT_API; S.cfg.srcTest=document.getElementById('cf-src').value; saveJSON(CFG_KEY,S.cfg); S.sheet=null;
+    S.cfg.api=document.getElementById('cf-api').value.trim()||S.site.api||DEFAULT_API; saveJSON(CFG_KEY,S.cfg); S.sheet=null;
     if(oldYt!==curYt()){ var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; }
-    if(wantSrc()!==oldSrc||S.mode==='none'){ if(wantSrc()==='live') startLive(); else startDemo(); }
+    if(S.mode!=='demo') startLive();
     render();
   }
   else if(a==='mute') toggleMute();

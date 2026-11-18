@@ -139,7 +139,8 @@ input,select{font:inherit;}
 .sheet h3{margin:0 0 4px;font-size:19px;}
 .sheet .sub{color:var(--muted);font-size:13px;margin-bottom:12px;}
 .sheet .pintro{background:var(--panel2);border-radius:10px;padding:8px 12px;margin:-4px 0 12px;font-size:14px;line-height:1.5;}
-.sheet .pintro .dept{display:inline-block;font-size:12px;font-weight:700;color:var(--muted);margin-right:6px;}
+.sheet .pintro .dept{font-size:12.5px;color:var(--muted);}
+.sheet .pintro .intro{font-size:15px;font-weight:700;color:var(--gold);}
 .bigbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .bigbtns button{height:60px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);font-size:16px;font-weight:700;}
 .bigbtns .rocket{background:linear-gradient(135deg,#ff7a3a,#c9483a);border:0;}
@@ -714,7 +715,7 @@ function renderSheet(){
     var x=situation(), team=x?(x.g.teams[x.ourSide]||{}):{}, p=((team.lineup||[]).concat(team.bench||[])).find(function(q){return q&&q.name===sh.name;})||{name:sh.name};
     var tb=todayBat(sh.name), tp=todayPit(sh.name), rc=rocketCounts().to[sh.name]||0;
     h+='<h3>'+(dispNum(p)?'#'+esc(dispNum(p))+' ':'')+esc(sh.name)+'</h3><div class="sub">'+esc(POS_LABEL[p.pos]||p.pos||'')+(tb.pas.length?' · 今日 '+tb.txt:'')+(tp.n?' · 今日 '+tp.n+' 球':'')+(rc?' · 🚀×'+rc:'')+'</div>';
-    var pi=pinfo(sh.name); if(pi&&(pi.dept||pi.intro)) h+='<div class="pintro">'+(pi.dept?'<span class="dept">'+esc(pi.dept)+'</span>':'')+esc(pi.intro||'')+'</div>';
+    var pi=pinfo(sh.name); if(pi&&(pi.dept||pi.school||pi.intro)) h+='<div class="pintro">'+((pi.dept||pi.school)?'<div class="dept">'+esc([pi.dept,pi.school].filter(Boolean).join(' · '))+'</div>':'')+(pi.intro?'<div class="intro">'+esc(pi.intro)+'</div>':'')+'</div>';
     if(!sh.view){
       h+='<div class="bigbtns"><button data-act="pstats">📊 球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
     } else {

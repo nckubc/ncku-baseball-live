@@ -61,7 +61,7 @@ code{background:#0b0b0d;padding:1px 5px;border-radius:4px;}
 
 <div class="card">
   <h2>DEMO 影片</h2>
-  <div class="mut">DEMO（在比分上連點 5 下，或網址加 <code>?demo=1</code>）會播這部影片，從「起點」開始，每按一次「下一球」往後跳「每球秒數」。</div>
+  <div class="mut">DEMO（播放頁右上角的 DEMO 按鈕，或網址加 <code>?demo=1</code>）會播這部影片，從「起點」開始，自動依真實紀錄的時間跟著影片走 20 球（約 9 分鐘）。起點＝3 局下 1 出局滿壘、DEFAULT6 打擊前。</div>
   <label for="demoYt">DEMO 影片網址</label>
   <input id="demoYt" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
   <div class="row" style="margin-top:6px">
@@ -70,7 +70,7 @@ code{background:#0b0b0d;padding:1px 5px;border-radius:4px;}
   </div>
   <div class="row">
     <div><label for="demoStart">起點（秒，或 分:秒）</label><input id="demoStart" inputmode="numeric" placeholder="0 或 1:23:45"></div>
-    <div><label for="demoStep">每球秒數</label><input id="demoStep" inputmode="numeric" placeholder="25"></div>
+    <div><label for="demoStep">每球秒數（舊版 DEMO 才用）</label><input id="demoStep" inputmode="numeric" placeholder="25"></div>
   </div>
   <div class="mut" id="demoHint"></div>
   <div class="prev" id="demoPrev"><div class="ph">預覽起點畫面</div></div>
@@ -125,7 +125,7 @@ $('yt').addEventListener('input', ()=>{ clearTimeout(tYt); tYt=setTimeout(()=>em
 $('ytClear').onclick = ()=>{ $('yt').value=''; embed($('ytPrev'),''); };
 function demoPreview(){ const st=parseTime($('demoStart').value), step=+$('demoStep').value||25;
   embed($('demoPrev'), $('demoYt').value, isNaN(st)?0:st);
-  $('demoHint').textContent = isNaN(st) ? '起點格式不對（例：95、1:35、1:02:03）' : '起點 '+fmt(st)+'，10 球約到 '+fmt(st+9*step); }
+  $('demoHint').textContent = isNaN(st) ? '起點格式不對（例：95、1:35、1:02:03）' : '起點 '+fmt(st)+'，20 球約到 '+fmt(st+562); }
 ['demoYt','demoStart','demoStep'].forEach(k=>$(k).addEventListener('input', ()=>{ clearTimeout(tDemo); tDemo=setTimeout(demoPreview, 500); }));
 $('demoPreviewBtn').onclick = demoPreview;
 document.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{ $('demoYt').value=b.dataset.pick; demoPreview(); });

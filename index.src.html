@@ -281,10 +281,30 @@ var DEFAULT_DEMO_YT='jKq4Ii_NE64';   /* 管理頁還沒設定 DEMO 影片時，�
 function demoVid(){ return S.mode==='demo'?ytId(S.remote.demoYt||S.site.demoYt||DEFAULT_DEMO_YT):''; }
 function demoCfg(k){ return S.remote[k]!=null&&S.remote[k]!==''?S.remote[k]:S.site[k]; }
 function demoStep(){ var n=+demoCfg('demoStep'); return n>0?n:25; }
-function demoT(){ return Math.max(0,(+demoCfg('demoStart')||0)+(S.demo?S.demo.i:0)*demoStep()); }
+/* 真實紀錄 DEMO：每個 frame 帶 t（相對 demoStart 的秒數），影片播到哪一球，紀錄就跟到哪一球 */
+function hasFrameT(){ return !!(S.demo&&S.demo.frames[0]&&S.demo.frames[0].t!=null); }
+function frameT(i){ var st=+demoCfg('demoStart')||0; return hasFrameT()?st+(+S.demo.frames[i].t||0):st+i*demoStep(); }
+function demoT(){ return Math.max(0, frameT(S.demo?S.demo.i:0)); }
+/* 手動切球時往前 8 秒，看得到投球動作 */
+function demoSeekT(){ var i=S.demo?S.demo.i:0; return Math.max(0, demoT()-(hasFrameT()&&i>0?8:0)); }
+function startAuto(){
+  if(S.autoTimer) clearInterval(S.autoTimer);
+  var wall0=Date.now(), base0=demoT();
+  try{ if(S.yt&&S.yt.playVideo) S.yt.playVideo(); }catch(e){}
+  S.autoTimer=setInterval(function(){
+    if(!S.demo){ clearInterval(S.autoTimer); S.autoTimer=null; return; }
+    var fr=S.demo.frames, last=fr.length-1, cur=null;
+    try{ if(demoVid()&&S.yt&&S.yt.getCurrentTime&&S.yt.getPlayerState&&S.yt.getPlayerState()!==-1) cur=S.yt.getCurrentTime(); }catch(e){}
+    if(cur==null) cur=base0+(Date.now()-wall0)/1000*(hasFrameT()?1:demoStep()/6);
+    var k=0; for(var j=0;j<=last;j++){ if(frameT(j)<=cur+0.3) k=j; }
+    if(k!==S.demo.i){ if(k<S.demo.i) S.lastEvN=-1; S.demo.i=k; applyFrame(); }
+    if(k===last&&cur>frameT(last)+10){ clearInterval(S.autoTimer); S.autoTimer=null; render(); }
+  }, 500);
+  render();
+}
 function curYt(){ return demoVid()||QS.get('v')||S.cfg.ytTest||S.remote.yt||S.site.yt||''; }
 function reloadVideoIf(old){ if(curYt()!==old){ var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; render(); } }
-function demoSeek(){ if(!demoVid()||!S.yt||!S.yt.seekTo) return; try{ var t=demoT(); if(Math.abs((S.yt.getCurrentTime()||0)-t)>2) S.yt.seekTo(t,true); }catch(e){} }
+function demoSeek(){ if(S.autoTimer||!demoVid()||!S.yt||!S.yt.seekTo) return; try{ var t=demoSeekT(); if(Math.abs((S.yt.getCurrentTime()||0)-t)>2) S.yt.seekTo(t,true); }catch(e){} }
 /* 即時讀 /config（EventSource 串流，任何人可讀；只有球隊帳號能在 admin.html 寫入） */
 function connectCfg(){
   var b=fbBase(); if(!b||S.cfgEs) return; var es; try{ es=new EventSource(b+'/config.json'); }catch(e){ return; } S.cfgEs=es;
@@ -409,7 +429,7 @@ function startDemo(){
   var d=demoData(); if(!d){ toast('這個版本沒有內嵌 DEMO 資料'); return; }
   var oldYt=curYt(); stopAll(); S.mode='demo'; S.hist=d.hist; S.demo={i:0, frames:d.frames}; S.lastEvN=-1;
   if(curYt()!==oldYt){ var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; }
-  startBots(); applyFrame();
+  startBots(); applyFrame(); if(hasFrameT()) startAuto();
 }
 function applyFrame(){
   var d=demoData(), fr=S.demo.frames[S.demo.i], g=JSON.parse(JSON.stringify(d.base));
@@ -582,7 +602,7 @@ function mountYT(){
   var id=ytId(curYt()), ch=ytChannel(curYt());
   if(!id && !ch){ S.yt=null; return; }
   var vars={autoplay:1, mute:1, playsinline:1, fs:0, rel:0, modestbranding:1, controls:1};
-  if(demoVid()) vars.start=Math.floor(demoT());
+  if(demoVid()) vars.start=Math.floor(demoSeekT());
   loadYTApi(function(){
     var opt={width:'100%',height:'100%',playerVars:vars,events:{onReady:function(e){ S.ytReady=true; S.muted=true; try{ e.target.mute(); e.target.playVideo(); }catch(x){} var ub=document.getElementById("unmute"); if(ub) ub.style.display=""; demoSeek(); }}};
     if(id) opt.videoId=id; else { opt.playerVars.list=undefined; }
@@ -827,9 +847,9 @@ document.addEventListener('click',function(ev){
   else if(a==='mute') toggleMute();
   else if(a==='full') toggleFull();
   else if(a==='dm'){ S.dmOn=!S.dmOn; S.cfg.dm=S.dmOn; saveJSON(CFG_KEY,S.cfg); t.textContent=S.dmOn?'彈幕 開':'彈幕 關'; var cb2=document.getElementById('dm-tog'); if(cb2) cb2.checked=S.dmOn; if(!S.dmOn) document.getElementById('dm').innerHTML=''; }
-  else if(a==='prev'&&S.demo&&S.demo.i>0){ S.demo.i--; S.lastEvN=-1; applyFrame(); }
-  else if(a==='next'&&S.demo&&S.demo.i<S.demo.frames.length-1){ S.demo.i++; applyFrame(); }
-  else if(a==='auto'){ if(S.autoTimer){ clearInterval(S.autoTimer); S.autoTimer=null; } else { S.autoTimer=setInterval(function(){ if(!S.demo) return; if(S.demo.i<S.demo.frames.length-1){ S.demo.i++; applyFrame(); } else { clearInterval(S.autoTimer); S.autoTimer=null; render(); } }, demoVid()?demoStep()*1000:6000); } render(); }
+  else if(a==='prev'&&S.demo&&S.demo.i>0){ if(S.autoTimer){ clearInterval(S.autoTimer); S.autoTimer=null; } S.demo.i--; S.lastEvN=-1; applyFrame(); }
+  else if(a==='next'&&S.demo&&S.demo.i<S.demo.frames.length-1){ if(S.autoTimer){ clearInterval(S.autoTimer); S.autoTimer=null; } S.demo.i++; applyFrame(); }
+  else if(a==='auto'){ if(S.autoTimer){ clearInterval(S.autoTimer); S.autoTimer=null; try{ if(S.yt&&S.yt.pauseVideo) S.yt.pauseVideo(); }catch(e){} render(); } else { if(S.demo&&S.demo.i>=S.demo.frames.length-1){ S.demo.i=0; S.lastEvN=-1; applyFrame(); try{ if(S.yt&&S.yt.seekTo) S.yt.seekTo(demoT(),true); }catch(e){} } startAuto(); } }
   else if(a==='bots'){ if(S.bots) stopBots(); else startBots(); render(); }
 });
 document.addEventListener('change',function(ev){ if(ev.target.id==='dm-tog'){ S.dmOn=ev.target.checked; S.cfg.dm=S.dmOn; saveJSON(CFG_KEY,S.cfg); var b=document.querySelector('[data-act="dm"]'); if(b) b.textContent=S.dmOn?'彈幕 開':'彈幕 關'; if(!S.dmOn) document.getElementById('dm').innerHTML=''; } });

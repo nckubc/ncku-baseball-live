@@ -138,6 +138,8 @@ input,select{font:inherit;}
 .sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:min(440px,94vw);max-height:84dvh;overflow-y:auto;padding:16px;}
 .sheet h3{margin:0 0 4px;font-size:19px;}
 .sheet .sub{color:var(--muted);font-size:13px;margin-bottom:12px;}
+.sheet .pintro{background:var(--panel2);border-radius:10px;padding:8px 12px;margin:-4px 0 12px;font-size:14px;line-height:1.5;}
+.sheet .pintro .dept{display:inline-block;font-size:12px;font-weight:700;color:var(--muted);margin-right:6px;}
 .bigbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .bigbtns button{height:60px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);font-size:16px;font-weight:700;}
 .bigbtns .rocket{background:linear-gradient(135deg,#ff7a3a,#c9483a);border:0;}
@@ -214,7 +216,11 @@ var HITS=['1B','2B','3B','HR'];
 var TOURNEY_ON=true;
 var TOURNEY_NUMS={'楊睿升':'1','黃中彥':'2','陳聲皓':'3','張永宸':'4','羅博强':'5','林正展':'6','黃昱綸':'7','黃子承':'8','王學睿':'9','高子淳':'10','王昱峻':'11','葉詠翔':'12','林建曄':'13','謝安綸':'14','王祥予':'15','許宏倫':'16','王曦賢':'17','顏辰峻':'18','蔡政哲':'19','蔡益宸':'20','吳尚霖':'21','張冠瑀':'22','謝竺庭':'23','張晉緁':'24'};
 var TOURNEY_ALIAS={'羅博強':'羅博强','王祥宇':'王祥予','張晉節':'張晉緁'};
-function dispNum(p){ if(!p) return ''; var n=String(p.name||'').trim(); if(TOURNEY_ON){ var v=TOURNEY_NUMS[n]; if(v==null&&TOURNEY_ALIAS[n]) v=TOURNEY_NUMS[TOURNEY_ALIAS[n]]; if(v!=null) return v; } return p.number||''; }
+/* 球員介紹（players.json：背號、系級、一句話介紹） */
+var PLAYERS={}, PLAYER_ALIAS={'羅博強':'羅博强','王祥宇':'王祥予','張晉節':'張晉緁','李友佳':'李有佳','蔡文偉':'蔡文瑋','謝安倫':'謝安綸','葉承銨':'葉宸銨','許朝威':'許昭威','謝竺亭':'謝竺庭'};
+function pinfo(n){ n=String(n||'').trim(); return PLAYERS[n]||PLAYERS[PLAYER_ALIAS[n]]||null; }
+function loadPlayers(){ return fetch('players.json?x='+Math.floor(Date.now()/600000),{cache:'no-store'}).then(function(r){ return r.ok?r.json():{}; }).catch(function(){ return {}; }).then(function(o){ PLAYERS=(o&&typeof o==='object')?o:{}; if(document.getElementById('app').dataset.built) render(); }); }
+function dispNum(p){ if(!p) return ''; var n=String(p.name||'').trim(); var pi=pinfo(n); if(TOURNEY_ON){ var v=TOURNEY_NUMS[n]; if(v==null&&TOURNEY_ALIAS[n]) v=TOURNEY_NUMS[TOURNEY_ALIAS[n]]; if(v!=null) return v; } return (pi&&pi.num)||p.number||''; }
 
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function pct(x){ return x==null?'—':Math.round(x*100)+'%'; }
@@ -708,6 +714,7 @@ function renderSheet(){
     var x=situation(), team=x?(x.g.teams[x.ourSide]||{}):{}, p=((team.lineup||[]).concat(team.bench||[])).find(function(q){return q&&q.name===sh.name;})||{name:sh.name};
     var tb=todayBat(sh.name), tp=todayPit(sh.name), rc=rocketCounts().to[sh.name]||0;
     h+='<h3>'+(dispNum(p)?'#'+esc(dispNum(p))+' ':'')+esc(sh.name)+'</h3><div class="sub">'+esc(POS_LABEL[p.pos]||p.pos||'')+(tb.pas.length?' · 今日 '+tb.txt:'')+(tp.n?' · 今日 '+tp.n+' 球':'')+(rc?' · 🚀×'+rc:'')+'</div>';
+    var pi=pinfo(sh.name); if(pi&&(pi.dept||pi.intro)) h+='<div class="pintro">'+(pi.dept?'<span class="dept">'+esc(pi.dept)+'</span>':'')+esc(pi.intro||'')+'</div>';
     if(!sh.view){
       h+='<div class="bigbtns"><button data-act="pstats">📊 球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
     } else {
@@ -797,7 +804,7 @@ window.addEventListener('storage',function(e){ /* 備援：BroadcastChannel 不�
   if(bc||!S.cur||e.key!==logKey()) return; (loadJSON(logKey(),[])||[]).forEach(function(m){ receive(m,false); }); });
 
 /* ================= 啟動 ================= */
-loadSite(true).then(function(){ connectCfg(); if(wantSrc()==='live') startLive(); else startDemo(); setInterval(function(){ if(!document.hidden) loadSite(false); }, 60000); });
+loadPlayers(); loadSite(true).then(function(){ connectCfg(); if(wantSrc()==='live') startLive(); else startDemo(); setInterval(function(){ if(!document.hidden) loadSite(false); }, 60000); });
 })();
 </script>
 </body>

@@ -747,18 +747,13 @@ function renderSheet(){
     if(!sh.view){
       h+='<div class="bigbtns"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
     } else {
-      var se=seasonOf(sh.name), b=se.b, pp=se.p;
-      if(tb.pas.length||!tp.n){
-        h+='<div class="muted">今日打席</div><div class="palist">'+(tb.pas.length?tb.pas.map(function(r,i){return '<div><span>第 '+(i+1)+' 打席（'+r.inn+'局）</span><b>'+esc(outLabel(r))+'</b></div>';}).join(''):'<div><span class="muted">今天還沒有打席</span></div>')+'</div>';
-        h+='<div class="muted" style="margin-top:12px">賽季打擊（簡易）</div><div class="kv">'+
-          '<div><div class="k">打擊率</div><div class="v">'+avg3(b.h,b.ab)+'</div></div><div><div class="k">上壘率</div><div class="v">'+avg3(b.h+b.bb+b.hbp,b.ab+b.bb+b.hbp+b.sf)+'</div></div>'+
-          '<div><div class="k">安打</div><div class="v">'+b.h+'</div></div><div><div class="k">全壘打</div><div class="v">'+b.hr+'</div></div><div><div class="k">保送</div><div class="v">'+(b.bb+b.hbp)+'</div></div></div>';
-      }
-      if(tp.n||pp.n){
-        h+='<div class="muted" style="margin-top:8px">今日投球</div><div class="kv"><div><div class="k">用球數</div><div class="v">'+tp.n+'</div></div><div><div class="k">好球率</div><div class="v">'+pct(tp.str)+'</div></div><div><div class="k">三振</div><div class="v">'+tp.k+'</div></div><div><div class="k">四死</div><div class="v">'+tp.bb+'</div></div></div>'+
-          '<div class="muted">賽季投球（簡易）</div><div class="kv"><div><div class="k">用球數</div><div class="v">'+pp.n+'</div></div><div><div class="k">好球率</div><div class="v">'+pct(pp.n?pp.str/pp.n:null)+'</div></div><div><div class="k">三振</div><div class="v">'+pp.k+'</div></div><div><div class="k">四死</div><div class="v">'+(pp.bb+pp.hbp)+'</div></div></div>';
-      }
-      h+='<p class="muted">雛形：賽季數據由歷史比賽即時計算；正式版改讀賽前預先產生的「公開數據快照」。</p>'+
+      var st=(pinfo(sh.name)||{}).stats||null, meta=PLAYERS._stats||{};
+      function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }
+      if(tb.pas.length) h+='<div class="muted">今日打席</div><div class="palist">'+tb.pas.map(function(r,i){return '<div><span>第 '+(i+1)+' 打席（'+r.inn+'局）</span><b>'+esc(outLabel(r))+'</b></div>';}).join('')+'</div>';
+      if(tp.n) h+='<div class="muted" style="margin-top:8px">今日投球</div><div class="kv"><div><div class="k">用球數</div><div class="v">'+tp.n+'</div></div><div><div class="k">三振</div><div class="v">'+tp.k+'</div></div></div>';
+      var snap=st?(kvBlock(meta.batTitle||'賽前打擊', st.bat)+kvBlock(meta.pitTitle||'賽前投球', st.pit)):'';
+      h+=snap||'<div class="muted" style="margin-top:8px">賽前數據整理中</div>';
+      h+='<p class="muted" style="font-size:12px;line-height:1.5">'+esc(meta.note||'數據統計至大專盃開賽前。賽事期間的數據可能影響比賽，暫不公開。')+'</p>'+
         '<div class="bigbtns"><button data-act="pback">返回</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
     }
     h+='<div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';

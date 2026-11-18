@@ -13,7 +13,7 @@ page, raw_path, out_path = sys.argv[1:4]
 GAME = 'game_okcbzm2nnco'
 START = 165        # 內嵌歷史事件的索引：3 局下 DEFAULT6 打擊（1 出局滿壘）
 N = 20             # 幾球
-LEAD = 18.0        # 第一球（雙殺打）結果約在起點後 18 秒出現；已用第 15 球（觸身球，影片約 4772 秒）校正
+LEAD = 35.0        # 第一球（雙殺打）結果約在起點後 35 秒出現（11/19 使用者實看校正：原 18 秒早了 17 秒）
 
 s = open(page, encoding='utf-8').read()
 dm = json.loads(re.search(r'<script id="demo-data" type="application/json">([\s\S]*?)</script>', s).group(1))

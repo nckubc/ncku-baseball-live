@@ -125,7 +125,7 @@ $('yt').addEventListener('input', ()=>{ clearTimeout(tYt); tYt=setTimeout(()=>em
 $('ytClear').onclick = ()=>{ $('yt').value=''; embed($('ytPrev'),''); };
 function demoPreview(){ const st=parseTime($('demoStart').value), step=+$('demoStep').value||25;
   embed($('demoPrev'), $('demoYt').value, isNaN(st)?0:st);
-  $('demoHint').textContent = isNaN(st) ? '起點格式不對（例：95、1:35、1:02:03）' : '起點 '+fmt(st)+'，20 球約到 '+fmt(st+562); }
+  $('demoHint').textContent = isNaN(st) ? '起點格式不對（例：95、1:35、1:02:03）' : '起點 '+fmt(st)+'，20 球約到 '+fmt(st+584); }
 ['demoYt','demoStart','demoStep'].forEach(k=>$(k).addEventListener('input', ()=>{ clearTimeout(tDemo); tDemo=setTimeout(demoPreview, 500); }));
 $('demoPreviewBtn').onclick = demoPreview;
 document.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{ $('demoYt').value=b.dataset.pick; demoPreview(); });

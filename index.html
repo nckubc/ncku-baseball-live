@@ -751,7 +751,9 @@ function renderSheet(){
       function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }
       if(tb.pas.length) h+='<div class="muted">今日打席</div><div class="palist">'+tb.pas.map(function(r,i){return '<div><span>第 '+(i+1)+' 打席（'+r.inn+'局）</span><b>'+esc(outLabel(r))+'</b></div>';}).join('')+'</div>';
       if(tp.n) h+='<div class="muted" style="margin-top:8px">今日投球</div><div class="kv"><div><div class="k">用球數</div><div class="v">'+tp.n+'</div></div><div><div class="k">三振</div><div class="v">'+tp.k+'</div></div></div>';
-      var snap=st?(kvBlock(meta.batTitle||'賽前打擊', st.bat)+kvBlock(meta.pitTitle||'賽前投球', st.pit)):'';
+      /* 打擊、投球都有的球員：看他今天登錄的守位，投手看投球，其他看打擊 */
+      var asP=p.pos==='P'||(!!tp.n&&!tb.pas.length);
+      var snap=''; if(st){ if(asP&&st.pit) snap=kvBlock(meta.pitTitle||'賽前投球', st.pit); else if(st.bat) snap=kvBlock(meta.batTitle||'賽前打擊', st.bat); else snap=kvBlock(meta.pitTitle||'賽前投球', st.pit); }
       h+=snap||'<div class="muted" style="margin-top:8px">賽前數據整理中</div>';
       h+='<p class="muted" style="font-size:12px;line-height:1.5">'+esc(meta.note||'數據統計至大專盃開賽前。賽事期間的數據可能影響比賽，暫不公開。')+'</p>'+
         '<div class="bigbtns"><button data-act="pback">返回</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';

@@ -338,7 +338,7 @@ function applyFrame(){
 function setGame(g){
   var prevN=S.lastEvN, sameGame=S.cur&&S.cur.id===g.id;
   S.cur=g; buildModel();
-  if(!sameGame){ S.log=loadJSON(logKey(),[]); S.seen={}; S.log.forEach(function(m){ S.seen[m.id]=1; }); }
+  if(!sameGame){ if(fbOn()){ S.log=[]; S.seen={}; connectRoom(); } else { S.log=loadJSON(logKey(),[]); S.seen={}; S.log.forEach(function(m){ S.seen[m.id]=1; }); } }
   if(sameGame && prevN>=0 && g.events.length>prevN) announce(g, prevN);
   S.lastEvN=g.events.length;
   render();
@@ -356,17 +356,47 @@ function announce(g, from){
   }
 }
 
-/* ================= 聊天室＋多人同步（雛形：BroadcastChannel） ================= */
+/* ================= 聊天室＋多人同步 =================
+   有設定 config.json 的 fb（Firebase Realtime Database 網址）→ 所有裝置即時同步（REST 寫入＋EventSource 串流，不需要 SDK 和金鑰）。
+   沒設定 → 退回 BroadcastChannel，只同步同一台電腦的分頁。
+   房間：正式比賽用 gameId；DEMO 共用 demo 房間，方便多支手機一起測。 */
 var bc=null; try{ bc=new BroadcastChannel('ncku_live_v1'); }catch(e){}
+S.room={state:'off', es:null, key:null};
+function fbBase(){ return String(S.site.fb||'').replace(/\/+$/,''); }
+function fbOn(){ return !!fbBase(); }
+function roomKey(){ if(!S.cur) return null; return (S.mode==='demo'?'demo':String(S.cur.id)).replace(/[.#$\[\]\/]/g,'_'); }
+function connectRoom(){
+  var key=roomKey(); if(!fbOn()||!key) return; if(S.room.es&&S.room.key===key) return;
+  if(S.room.es){ try{ S.room.es.close(); }catch(e){} }
+  S.room={state:'connecting', es:null, key:key};
+  var es; try{ es=new EventSource(fbBase()+'/live/'+key+'/log.json?orderBy=%22%24key%22&limitToLast=200'); }catch(e){ S.room.state='err'; return; }
+  S.room.es=es;
+  function take(d, quiet){ if(!d||typeof d!=='object') return;
+    if(d.path==='/'){ if(d.data&&typeof d.data==='object') Object.keys(d.data).sort().forEach(function(k){ var m=d.data[k]; if(m&&m.id) receive(m,false,quiet); }); }
+    else if(d.data&&d.data.id) receive(d.data,false,quiet); }
+  var first=true;
+  es.addEventListener('put',function(ev){ if(S.room.key!==key) return; S.room.state='on'; var d; try{ d=JSON.parse(ev.data); }catch(e){ return; } take(d, first&&d.path==='/'); first=false; });
+  es.addEventListener('patch',function(ev){ if(S.room.key!==key) return; var d; try{ d=JSON.parse(ev.data); }catch(e){ return; } if(d&&d.data) Object.keys(d.data).forEach(function(k){ take({path:'/'+k,data:d.data[k]},false); }); });
+  es.addEventListener('cancel',function(){ S.room.state='err'; });
+  es.onerror=function(){ if(S.room.key===key&&S.room.state!=='on') S.room.state='err'; };
+}
 function logKey(){ return 'live_log_'+(S.cur?S.cur.id:'none'); }
 function uidm(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-function publish(m){ receive(m,true); if(bc) bc.postMessage({gid:S.cur?S.cur.id:'', m:m}); }
+function publish(m){
+  receive(m,true);
+  if(fbOn()&&roomKey()){ var body={id:m.id, kind:m.kind, from:m.from, t:m.t}; if(m.text!=null) body.text=m.text; if(m.to!=null) body.to=m.to;
+    fetch(fbBase()+'/live/'+roomKey()+'/log.json',{method:'POST',body:JSON.stringify(body)}).then(function(r){ if(!r.ok) toast('送出失敗，請稍後再試'); }).catch(function(){ toast('網路不穩，送出失敗'); });
+    return; }
+  if(bc) bc.postMessage({gid:S.cur?S.cur.id:'', m:m});
+}
 if(bc) bc.onmessage=function(ev){ var d=ev.data||{}; if(!S.cur||d.gid!==S.cur.id) return; receive(d.m,false); };
-function receive(m, mine){
-  if(S.seen[m.id]) return; S.seen[m.id]=1;
+function receive(m, mine, quiet){
+  if(!m||!m.id||S.seen[m.id]) return; S.seen[m.id]=1;
+  if(m.kind==='chat'&&typeof m.text!=='string') return; if(m.kind==='rocket'&&typeof m.to!=='string') return;
   S.log.push(m); if(S.log.length>300) S.log=S.log.slice(-300);
-  if(m.kind!=='sys' && m.kind!=='bot') saveJSON(logKey(), S.log.filter(function(x){return (x.kind==='chat'||x.kind==='rocket')&&!x.bot;}));   /* DEMO 模擬觀眾的訊息不存 */
+  if(!fbOn() && m.kind!=='sys' && m.kind!=='bot') saveJSON(logKey(), S.log.filter(function(x){return (x.kind==='chat'||x.kind==='rocket')&&!x.bot;}));   /* 沒有雲端時才存本機；DEMO 模擬觀眾的訊息不存 */
   appendMsg(m, mine);
+  if(quiet){ if(m.kind==='rocket') renderSide(); return; }   /* 剛進房間載入的舊訊息：只列出，不播特效 */
   if(m.kind==='rocket'){ renderSide(); rocketFx(m.to, m.from); fly(m.from+' 🚀 '+m.to, 'rk'); }   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
   else if(m.kind==='chat'||m.kind==='bot'){ fly(m.text, mine?'me':''); }
 }
@@ -619,7 +649,7 @@ function renderSheet(){
       '<details style="margin-bottom:10px"><summary class="muted">進階（測試用）</summary><div style="margin-top:8px">'+
       '<div class="fieldrow">測試用直播網址（留空＝使用官方設定'+(S.site.yt?'':'，目前官方尚未設定')+'）<input id="cf-yt" value="'+esc(c.ytTest||'')+'" placeholder="https://www.youtube.com/live/xxxxxxxxxxx"></div>'+
       '<div class="fieldrow">雲端網址（Apps Script）<input id="cf-api" value="'+esc(c.api||'')+'"></div></div></details>'+
-      '<p class="muted">雛形的多人同步只在「同一台電腦的多個分頁」之間有效。開兩個分頁、取不同暱稱，就能模擬兩位觀眾。</p>'+
+      '<p class="muted">多人連線：'+(fbOn()?(S.room.state==='on'?'已連線，所有裝置即時同步':(S.room.state==='err'?'連線失敗，請檢查網路':'連線中…')):'未設定（只在同一台電腦的分頁間同步）')+'</p>'+
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveCfg">儲存</button></div>';
   } else if(sh.type==='nick'){
     h+='<h3>取個暱稱</h3><div class="sub">留言和刷火箭時會顯示這個名字</div><div class="fieldrow"><input id="nick-in" maxlength="12" placeholder="例如：成大校友"></div>'+

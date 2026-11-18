@@ -75,8 +75,12 @@ def cap(e):
     return f"{half}・{who}：{txt}"
 
 t0 = ts[ev[START]['id']]
+# 內嵌歷史只留投手更換；把原始紀錄裡開場前的其他換人（例：守備更換 LF 葉宸銨）補回來，打序由觀賽頁依紀錄推算
+raw_ev = raw['events']; start_raw = [i for i, e in enumerate(raw_ev) if e['id'] == ev[START]['id']][0]
+extra = [{k: e.get(k) for k in ('id', 'type', 'kind', 'inPlayerName', 'outPlayerName', 'position', 'inningBefore', 'halfBefore', 'battingTeam', 'fieldingTeam', 'summary') if e.get(k) is not None}
+         for e in raw_ev[:start_raw] if e['type'] == 'sub' and e.get('kind') != '投手更換']
 frames = [{'t': 0, 'cap': '真實比賽重播：10/31 成大 vs 義守，3局下 1出局滿壘，王昱峻對 DEFAULT6。影片和紀錄會一起走。',
-           'events': [], 'teams': teams, 'state': state_before(START)}]
+           'events': extra, 'state': state_before(START)}]
 k = START; used = 0
 while used < N:
     e = ev[k]

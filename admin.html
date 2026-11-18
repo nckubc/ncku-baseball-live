@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>直播管理｜成大棒球線上觀賽</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#121417;--card:#1d2026;--line:#2e333b;--fg:#eef1f5;--mut:#9aa3ae;--acc:#e8b931;--ok:#3ecf8e;--err:#ff6b6b;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;}
+main{max-width:560px;margin:0 auto;padding:14px 16px 60px;}
+h1{font-size:20px;margin:6px 0 12px;}
+h2{font-size:16px;margin:0 0 8px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0;}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px;}
+input{width:100%;height:42px;border-radius:8px;border:1px solid var(--line);background:#0e1013;color:var(--fg);padding:0 10px;font-size:15px;}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.row>*{flex:1;min-width:0;}
+button{height:42px;border-radius:8px;border:1px solid var(--line);background:#2a2f37;color:var(--fg);font-size:15px;padding:0 14px;cursor:pointer;}
+button.pri{background:var(--acc);color:#1a1400;border-color:var(--acc);font-weight:700;}
+button.sm{height:32px;font-size:13px;padding:0 10px;flex:0 0 auto;}
+button:disabled{opacity:.5;cursor:default;}
+.prev{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden;margin-top:10px;}
+.prev iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+.prev .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:13px;}
+.mut{color:var(--mut);font-size:13px;}
+.msg{min-height:20px;font-size:14px;margin-top:8px;}
+.ok{color:var(--ok)} .err{color:var(--err)}
+.hide{display:none!important}
+a{color:var(--acc)}
+code{background:#0e1013;padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+<main>
+<h1>⚾ 直播管理</h1>
+
+<div class="card" id="authCard">
+  <div id="authInfo" class="mut">載入中…</div>
+  <div class="row" style="margin-top:8px">
+    <button class="pri" id="btnIn">用 Google 登入</button>
+    <button id="btnOut" class="hide">登出</button>
+  </div>
+  <div class="msg" id="authMsg"></div>
+</div>
+
+<div id="editor" class="hide">
+<div class="card">
+  <h2>直播網址</h2>
+  <div class="mut">貼上這場的 YouTube 直播網址，按「儲存」後，觀眾的頁面幾秒內就會換上新直播。</div>
+  <label for="yt">YouTube 網址（或 11 碼影片 ID）</label>
+  <input id="yt" placeholder="https://www.youtube.com/live/xxxxxxxxxxx" autocomplete="off">
+  <div class="prev" id="ytPrev"><div class="ph">貼上網址後這裡會顯示預覽</div></div>
+  <div class="row" style="margin-top:10px">
+    <button class="pri" data-save="yt">儲存直播網址</button>
+    <button class="sm" id="ytClear">清空</button>
+  </div>
+  <div class="msg" id="ytMsg"></div>
+</div>
+
+<div class="card">
+  <h2>DEMO 影片</h2>
+  <div class="mut">DEMO（在比分上連點 5 下，或網址加 <code>?demo=1</code>）會播這部影片，從「起點」開始，每按一次「下一球」往後跳「每球秒數」。</div>
+  <label for="demoYt">DEMO 影片網址</label>
+  <input id="demoYt" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+  <div class="row" style="margin-top:6px">
+    <button class="sm" data-pick="https://www.youtube.com/watch?v=jKq4Ii_NE64">義守 第 1 段</button>
+    <button class="sm" data-pick="https://www.youtube.com/watch?v=OlcMHTHk_Ck">義守 第 2 段</button>
+  </div>
+  <div class="row">
+    <div><label for="demoStart">起點（秒，或 分:秒）</label><input id="demoStart" inputmode="numeric" placeholder="0 或 1:23:45"></div>
+    <div><label for="demoStep">每球秒數</label><input id="demoStep" inputmode="numeric" placeholder="25"></div>
+  </div>
+  <div class="mut" id="demoHint"></div>
+  <div class="prev" id="demoPrev"><div class="ph">預覽起點畫面</div></div>
+  <div class="row" style="margin-top:10px">
+    <button class="pri" data-save="demo">儲存 DEMO 設定</button>
+    <button class="sm" id="demoPreviewBtn">重新預覽</button>
+  </div>
+  <div class="msg" id="demoMsg"></div>
+</div>
+
+<div class="card mut">
+  觀眾網址：<a href="./" target="_blank" rel="noopener">線上觀賽頁</a>
+  ・<a href="./?demo=1" target="_blank" rel="noopener">DEMO</a><br>
+  目前雲端設定最後更新：<span id="upd">—</span>
+</div>
+</div>
+</main>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { getDatabase, ref, onValue, update, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+
+/* Firebase 網頁設定（公開資訊；真正的權限由資料庫規則控管：只有 nckubc@gmail.com 能寫 /config） */
+const app = initializeApp({
+  apiKey: "AIzaSyC_lYqluBESyAk74mCThCl6pmmEZYSeXWY",
+  authDomain: "ncku-baseball-live.firebaseapp.com",
+  databaseURL: "https://ncku-baseball-live-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ncku-baseball-live",
+  appId: "1:389060943324:web:c7dc454c344bee56974319"
+});
+const ADMIN = 'nckubc@gmail.com';
+const auth = getAuth(app), db = getDatabase(app), cfgRef = ref(db, 'config');
+const $ = id => document.getElementById(id);
+
+function ytId(s){ s=String(s||'').trim(); if(!s) return ''; const m=s.match(/(?:v=|youtu\.be\/|\/live\/|\/embed\/|\/shorts\/)([A-Za-z0-9_-]{11})/); if(m) return m[1]; return /^[A-Za-z0-9_-]{11}$/.test(s)?s:''; }
+function ytChannel(s){ const m=String(s||'').match(/(UC[A-Za-z0-9_-]{22})/); return m?m[1]:''; }
+function parseTime(s){ s=String(s||'').trim(); if(!s) return 0; if(/^\d+(\.\d+)?$/.test(s)) return Math.round(+s); const p=s.split(':').map(Number); if(p.some(isNaN)) return NaN; return p.reduce((a,b)=>a*60+b,0); }
+function fmt(t){ t=Math.max(0,Math.round(t)); const h=Math.floor(t/3600), m=Math.floor(t%3600/60), s=t%60; return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0'); }
+function embed(box, url, start){
+  const id=ytId(url), ch=ytChannel(url); let src='';
+  if(id) src='https://www.youtube.com/embed/'+id+'?mute=1&playsinline=1&rel=0'+(start?'&start='+start:'');
+  else if(ch) src='https://www.youtube.com/embed/live_stream?channel='+ch+'&mute=1&playsinline=1';
+  box.innerHTML = src ? '<iframe allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen src="'+src+'"></iframe>'
+    : '<div class="ph">'+(String(url||'').trim()?'看不懂這個網址，請貼 YouTube 影片／直播網址':'貼上網址後這裡會顯示預覽')+'</div>';
+}
+function msg(el, text, ok){ el.textContent=text; el.className='msg '+(ok?'ok':'err'); }
+
+/* 預覽 */
+let tYt=0, tDemo=0;
+$('yt').addEventListener('input', ()=>{ clearTimeout(tYt); tYt=setTimeout(()=>embed($('ytPrev'), $('yt').value), 400); });
+$('ytClear').onclick = ()=>{ $('yt').value=''; embed($('ytPrev'),''); };
+function demoPreview(){ const st=parseTime($('demoStart').value), step=+$('demoStep').value||25;
+  embed($('demoPrev'), $('demoYt').value, isNaN(st)?0:st);
+  $('demoHint').textContent = isNaN(st) ? '起點格式不對（例：95、1:35、1:02:03）' : '起點 '+fmt(st)+'，10 球約到 '+fmt(st+9*step); }
+['demoYt','demoStart','demoStep'].forEach(k=>$(k).addEventListener('input', ()=>{ clearTimeout(tDemo); tDemo=setTimeout(demoPreview, 500); }));
+$('demoPreviewBtn').onclick = demoPreview;
+document.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{ $('demoYt').value=b.dataset.pick; demoPreview(); });
+
+/* 登入 */
+const provider = new GoogleAuthProvider(); provider.setCustomParameters({prompt:'select_account'});
+$('btnIn').onclick = async ()=>{
+  $('authMsg').textContent='';
+  try{ await signInWithPopup(auth, provider); }
+  catch(e){
+    if(e.code==='auth/popup-blocked' || e.code==='auth/operation-not-supported-in-this-environment'){ await signInWithRedirect(auth, provider); return; }
+    if(e.code!=='auth/popup-closed-by-user' && e.code!=='auth/cancelled-popup-request') msg($('authMsg'), '登入失敗：'+(e.code||e.message), false);
+  }
+};
+getRedirectResult(auth).catch(e=>msg($('authMsg'), '登入失敗：'+(e.code||e.message), false));
+$('btnOut').onclick = ()=>signOut(auth);
+
+let loaded=false;
+onAuthStateChanged(auth, u=>{
+  const isAdmin = !!(u && u.email===ADMIN && u.emailVerified);
+  $('btnIn').classList.toggle('hide', !!u); $('btnOut').classList.toggle('hide', !u);
+  $('authInfo').innerHTML = !u ? '請用球隊帳號 <b>'+ADMIN+'</b> 登入。' : '已登入：<b>'+u.email+'</b>';
+  if(u && !isAdmin) msg($('authMsg'), '這個帳號沒有管理權限，請登出後改用 '+ADMIN+'。', false); else if(u) $('authMsg').textContent='';
+  $('editor').classList.toggle('hide', !isAdmin);
+});
+
+/* 讀目前設定（任何人可讀） */
+onValue(cfgRef, s=>{
+  const c=s.val()||{};
+  $('upd').textContent = c.updatedAt ? new Date(c.updatedAt).toLocaleString('zh-TW') : '尚未設定';
+  if(loaded) return; loaded=true;
+  $('yt').value=c.yt||''; $('demoYt').value=c.demoYt||'';
+  $('demoStart').value = c.demoStart ? fmt(c.demoStart) : '0'; $('demoStep').value = c.demoStep||25;
+  embed($('ytPrev'), $('yt').value); demoPreview();
+});
+
+/* 儲存 */
+document.querySelectorAll('[data-save]').forEach(b=>b.onclick=async ()=>{
+  const which=b.dataset.save, out=$(which==='yt'?'ytMsg':'demoMsg'); let data;
+  if(which==='yt'){
+    const v=$('yt').value.trim();
+    if(v && !ytId(v) && !ytChannel(v)) return msg(out,'看不懂這個網址，請貼 YouTube 影片／直播網址',false);
+    data={yt:v};
+  } else {
+    const v=$('demoYt').value.trim(), st=parseTime($('demoStart').value), step=Number($('demoStep').value||25);
+    if(v && !ytId(v)) return msg(out,'DEMO 影片網址看不懂',false);
+    if(isNaN(st)||st<0) return msg(out,'起點格式不對（例：95、1:35、1:02:03）',false);
+    if(!(step>=1&&step<=600)) return msg(out,'每球秒數要在 1–600 之間',false);
+    data={demoYt:v, demoStart:st, demoStep:Math.round(step)};
+  }
+  data.updatedAt=serverTimestamp(); b.disabled=true;
+  try{ await update(cfgRef, data); msg(out,'已儲存 ✓ 觀眾頁面幾秒內會更新',true); }
+  catch(e){ msg(out,'儲存失敗：'+(e.code||e.message),false); }
+  b.disabled=false;
+});
+</script>
+</body>
+</html>

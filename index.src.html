@@ -226,13 +226,29 @@ var S={
 };
 if(S.cfg.dm===false) S.dmOn=false;
 if(!S.cfg.api) S.cfg.api=DEFAULT_API;
-/* ===== 官方設定（config.json，和網頁放在同一個 repo）=====
-   每場比賽前只要改 config.json 的 yt，所有人打開連結就會自動播放這場直播；
-   開著網頁的人約 1 分鐘內也會自動換上新的直播。
-   優先順序：網址參數 ?v=影片ID ＞ 自己在「測試用」欄位填的 ＞ config.json */
-S.site={};
+/* ===== 官方設定 =====
+   直播網址在 admin.html（直播管理頁）設定，存在 Firebase /config；所有開著的網頁幾秒內就會換上新直播。
+   /config 讀不到時退回 config.json（和網頁放在同一個 repo）。
+   優先順序：網址參數 ?v=影片ID ＞ 自己在「測試用」欄位填的 ＞ /config ＞ config.json
+   DEMO 模式：/config 有 demoYt 時改播那部影片，從 demoStart 秒開始，每一球往後 demoStep 秒。 */
+S.site={}; S.remote={}; S.cfgEs=null;
+var DEFAULT_FB='https://ncku-baseball-live-default-rtdb.asia-southeast1.firebasedatabase.app';
 var QS=new URLSearchParams(location.search);
-function curYt(){ return QS.get('v')||S.cfg.ytTest||S.site.yt||''; }
+function demoVid(){ return S.mode==='demo'?ytId(S.remote.demoYt||''):''; }
+function demoStep(){ var n=+S.remote.demoStep; return n>0?n:25; }
+function demoT(){ return Math.max(0,(+S.remote.demoStart||0)+(S.demo?S.demo.i:0)*demoStep()); }
+function curYt(){ return demoVid()||QS.get('v')||S.cfg.ytTest||S.remote.yt||S.site.yt||''; }
+function reloadVideoIf(old){ if(curYt()!==old){ var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; render(); } }
+function demoSeek(){ if(!demoVid()||!S.yt||!S.yt.seekTo) return; try{ var t=demoT(); if(Math.abs((S.yt.getCurrentTime()||0)-t)>2) S.yt.seekTo(t,true); }catch(e){} }
+/* 即時讀 /config（EventSource 串流，任何人可讀；只有球隊帳號能在 admin.html 寫入） */
+function connectCfg(){
+  var b=fbBase(); if(!b||S.cfgEs) return; var es; try{ es=new EventSource(b+'/config.json'); }catch(e){ return; } S.cfgEs=es;
+  function apply(fn){ var old=curYt(), oldT=demoT(); fn(); if(curYt()!==old) reloadVideoIf(old); else if(demoT()!==oldT) demoSeek(); }
+  es.addEventListener('put',function(ev){ var d; try{ d=JSON.parse(ev.data); }catch(e){ return; } if(!d) return; apply(function(){
+    if(d.path==='/') S.remote=(d.data&&typeof d.data==='object')?d.data:{};
+    else { var k=String(d.path).replace(/^\//,'').split('/')[0]; if(d.data==null) delete S.remote[k]; else S.remote[k]=d.data; } }); });
+  es.addEventListener('patch',function(ev){ var d; try{ d=JSON.parse(ev.data); }catch(e){ return; } if(!d||!d.data) return; apply(function(){ if(d.path==='/') Object.keys(d.data).forEach(function(k){ S.remote[k]=d.data[k]; }); }); });
+}
 /* 正常一律讀即時資料；DEMO 只能用隱藏方式開啟：在比分（或標題）上 1.5 秒內連點 5 下，或網址加 ?demo=1 */
 function wantSrc(){ return QS.get('demo')==='1'?'demo':'live'; }
 var secretTaps=[];
@@ -346,12 +362,14 @@ var DEMO_RAW=null;
 function demoData(){ if(!DEMO_RAW){ try{ DEMO_RAW=JSON.parse(document.getElementById('demo-data').textContent); }catch(e){ DEMO_RAW=null; } } return DEMO_RAW; }
 function startDemo(){
   var d=demoData(); if(!d){ toast('這個版本沒有內嵌 DEMO 資料'); return; }
-  stopAll(); S.mode='demo'; S.hist=d.hist; S.demo={i:0, frames:d.frames}; S.lastEvN=-1; startBots(); applyFrame();
+  var oldYt=curYt(); stopAll(); S.mode='demo'; S.hist=d.hist; S.demo={i:0, frames:d.frames}; S.lastEvN=-1;
+  if(curYt()!==oldYt){ var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; }
+  startBots(); applyFrame();
 }
 function applyFrame(){
   var d=demoData(), fr=S.demo.frames[S.demo.i], g=JSON.parse(JSON.stringify(d.base));
   for(var k=0;k<=S.demo.i;k++){ var f=S.demo.frames[k]; (f.events||[]).forEach(function(e){ g.events.push(e); }); if(f.teams) g.teams=JSON.parse(JSON.stringify(f.teams)); }
-  g.state=fr.state; setGame(g);
+  g.state=fr.state; setGame(g); demoSeek();
 }
 /* 新比賽資料進來：重建模型，並把「新發生的事件」變成系統訊息（每個分頁自己算，不需要廣播） */
 function setGame(g){
@@ -381,7 +399,7 @@ function announce(g, from){
    房間：正式比賽用 gameId；DEMO 共用 demo 房間，方便多支手機一起測。 */
 var bc=null; try{ bc=new BroadcastChannel('ncku_live_v1'); }catch(e){}
 S.room={state:'off', es:null, key:null};
-function fbBase(){ return String(S.site.fb||'').replace(/\/+$/,''); }
+function fbBase(){ return String(S.site.fb||DEFAULT_FB).replace(/\/+$/,''); }
 function fbOn(){ return !!fbBase(); }
 function roomKey(){ if(!S.cur) return null; return (S.mode==='demo'?'demo':String(S.cur.id)).replace(/[.#$\[\]\/]/g,'_'); }
 function connectRoom(){
@@ -519,8 +537,9 @@ function mountYT(){
   var id=ytId(curYt()), ch=ytChannel(curYt());
   if(!id && !ch){ S.yt=null; return; }
   var vars={autoplay:1, mute:1, playsinline:1, fs:0, rel:0, modestbranding:1, controls:1};
+  if(demoVid()) vars.start=Math.floor(demoT());
   loadYTApi(function(){
-    var opt={width:'100%',height:'100%',playerVars:vars,events:{onReady:function(e){ S.ytReady=true; try{ e.target.mute(); e.target.playVideo(); }catch(x){} }}};
+    var opt={width:'100%',height:'100%',playerVars:vars,events:{onReady:function(e){ S.ytReady=true; S.muted=true; try{ e.target.mute(); e.target.playVideo(); }catch(x){} var ub=document.getElementById("unmute"); if(ub) ub.style.display=""; demoSeek(); }}};
     if(id) opt.videoId=id; else { opt.playerVars.list=undefined; }
     try{
       if(!id && ch){ /* 備案：頻道目前的直播（YouTube 沒有正式文件，可能不穩） */
@@ -757,7 +776,7 @@ document.addEventListener('click',function(ev){
   else if(a==='dm'){ S.dmOn=!S.dmOn; S.cfg.dm=S.dmOn; saveJSON(CFG_KEY,S.cfg); t.textContent=S.dmOn?'彈幕 開':'彈幕 關'; var cb2=document.getElementById('dm-tog'); if(cb2) cb2.checked=S.dmOn; if(!S.dmOn) document.getElementById('dm').innerHTML=''; }
   else if(a==='prev'&&S.demo&&S.demo.i>0){ S.demo.i--; S.lastEvN=-1; applyFrame(); }
   else if(a==='next'&&S.demo&&S.demo.i<S.demo.frames.length-1){ S.demo.i++; applyFrame(); }
-  else if(a==='auto'){ if(S.autoTimer){ clearInterval(S.autoTimer); S.autoTimer=null; } else { S.autoTimer=setInterval(function(){ if(!S.demo) return; if(S.demo.i<S.demo.frames.length-1){ S.demo.i++; applyFrame(); } else { clearInterval(S.autoTimer); S.autoTimer=null; render(); } }, 6000); } render(); }
+  else if(a==='auto'){ if(S.autoTimer){ clearInterval(S.autoTimer); S.autoTimer=null; } else { S.autoTimer=setInterval(function(){ if(!S.demo) return; if(S.demo.i<S.demo.frames.length-1){ S.demo.i++; applyFrame(); } else { clearInterval(S.autoTimer); S.autoTimer=null; render(); } }, demoVid()?demoStep()*1000:6000); } render(); }
   else if(a==='bots'){ if(S.bots) stopBots(); else startBots(); render(); }
 });
 document.addEventListener('change',function(ev){ if(ev.target.id==='dm-tog'){ S.dmOn=ev.target.checked; S.cfg.dm=S.dmOn; saveJSON(CFG_KEY,S.cfg); var b=document.querySelector('[data-act="dm"]'); if(b) b.textContent=S.dmOn?'彈幕 開':'彈幕 關'; if(!S.dmOn) document.getElementById('dm').innerHTML=''; } });
@@ -770,7 +789,7 @@ window.addEventListener('storage',function(e){ /* 備援：BroadcastChannel 不�
   if(bc||!S.cur||e.key!==logKey()) return; (loadJSON(logKey(),[])||[]).forEach(function(m){ receive(m,false); }); });
 
 /* ================= 啟動 ================= */
-loadSite(true).then(function(){ if(wantSrc()==='live') startLive(); else startDemo(); setInterval(function(){ if(!document.hidden) loadSite(false); }, 60000); });
+loadSite(true).then(function(){ connectCfg(); if(wantSrc()==='live') startLive(); else startDemo(); setInterval(function(){ if(!document.hidden) loadSite(false); }, 60000); });
 })();
 </script>
 </body>

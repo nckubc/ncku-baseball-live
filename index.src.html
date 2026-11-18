@@ -6,8 +6,8 @@
 <title>成大棒球 線上觀賽</title>
 <style>
 :root{
-  --bg:#0f1115; --panel:#181b22; --panel2:#20242d; --line:#2c313c; --text:#eef0f4; --muted:#9aa1ae;
-  --acc:#c9483a; --acc2:#e86a3a; --gold:#f2c14e; --ok:#3fb27f; --blue:#4c8dff;
+  --bg:#0e0e10; --panel:#161619; --panel2:#1f1f23; --line:#2b2b30; --text:#f2ede4; --muted:#99948c;
+  --acc:#b3262d; --acc2:#b3262d; --acc-l:#e0767b; --acc-d:#3d1618; --gold:#efe3c8; --ok:#99948c; --blue:#34343a;
   --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
 }
 *{box-sizing:border-box;}
@@ -17,7 +17,7 @@ input,select{font:inherit;}
 .app{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;padding-top:var(--safe-t);}
 
 /* ---------- 比分列 ---------- */
-.sb{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#0b0d11;border-bottom:1px solid var(--line);flex-wrap:wrap;min-height:44px;}
+.sb{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#0a0a0b;border-bottom:1px solid var(--line);flex-wrap:wrap;min-height:44px;}
 .sb .sbside{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--acc);white-space:nowrap;}
 .sb .sbside.def{background:var(--blue);}
 .sb .score{font-size:18px;font-weight:800;letter-spacing:.5px;white-space:nowrap;}
@@ -31,16 +31,35 @@ input,select{font:inherit;}
 .sb .who{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sb .who b{color:var(--text);}
 .sb .sp{flex:1;}
-.demobtn{font-size:12.5px;font-weight:700;color:#f6e3b0;background:#3a2f12;border-color:#6b5520;}
-.demobtn.on{background:var(--acc);color:#1a1400;border-color:var(--acc);}
-.iconbtn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;min-width:36px;height:34px;padding:0 8px;}
+.iconbtn.demobtn{font-size:10.5px;font-weight:700;color:var(--muted);background:transparent;border-color:var(--line);min-width:0;height:24px;padding:0 6px;border-radius:6px;opacity:.85;}
+.iconbtn.demobtn.on{background:var(--acc);color:#fff;border-color:var(--acc);opacity:1;}
+.sponsorbtn{height:32px;padding:0 12px;border-radius:999px;border:0;background:var(--acc);color:#fff;font-weight:800;font-size:13px;white-space:nowrap;animation:spGlow 2.4s ease-in-out infinite;}
+@keyframes spGlow{0%,100%{box-shadow:0 0 0 0 #b3262d00;}50%{box-shadow:0 0 0 4px #b3262d55;}}
+.spkv{background:var(--panel2);border-radius:10px;padding:2px 12px;margin-bottom:12px;}
+.spkv>div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+.spkv>div:last-child{border-bottom:0;}
+.spkv span{color:var(--muted);font-size:13px;}
+.spkv b{font-size:16px;letter-spacing:.5px;}
+.spkv button{height:28px;margin-left:8px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font-size:12px;font-weight:700;}
+.spqr{display:flex;align-items:center;justify-content:center;width:180px;height:180px;margin:0 auto 12px;border-radius:12px;background:#fff;color:#777;font-size:13px;overflow:hidden;}
+.spqr img{width:100%;height:100%;object-fit:contain;}
+#boot{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 42%,#2a1414,#0a0a0b 70%);transition:opacity .45s ease;}
+#boot.hide{opacity:0;pointer-events:none;}
+#boot img{width:132px;height:132px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px #efe3c888,0 0 36px #b3262d99;animation:bootPulse 1.6s ease-in-out infinite;}
+#boot .t{font-weight:900;letter-spacing:3px;font-size:15px;color:#f2e6c8;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
+#boot .t i{display:inline-block;font-style:normal;animation:bootDot 1.2s infinite;}
+#boot .t i:nth-child(2){animation-delay:.2s}#boot .t i:nth-child(3){animation-delay:.4s}
+@keyframes bootPulse{50%{transform:scale(1.05);}}
+@keyframes bootDot{0%,60%,100%{opacity:.2}30%{opacity:1}}
+.iconbtn svg{display:block;margin:auto;}
+.iconbtn{background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:8px;min-width:36px;height:34px;padding:0 8px;}
 
 /* ---------- 主版面 ---------- */
 .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"video side" "chat side";}
 .videoWrap{grid-area:video;position:relative;background:#000;aspect-ratio:16/9;max-height:calc(100dvh - 340px);width:100%;justify-self:center;}
 .chat{min-height:200px;}
 .videoWrap iframe,.videoWrap #yt{position:absolute;inset:0;width:100%;height:100%;border:0;}
-.vph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);background:radial-gradient(circle at 50% 40%,#1f2a3a,#07080b);text-align:center;padding:10px;}
+.vph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);background:radial-gradient(circle at 50% 40%,#1d1d21,#07080b);text-align:center;padding:10px;}
 .vph b{color:var(--text);font-size:18px;}
 .vctl{position:absolute;right:8px;bottom:8px;display:flex;gap:6px;z-index:6;}
 .vctl button{background:#000a;border:1px solid #fff3;border-radius:8px;height:34px;padding:0 10px;font-size:13px;}
@@ -53,12 +72,12 @@ input,select{font:inherit;}
 .dm span{position:absolute;left:100%;white-space:nowrap;font-weight:700;font-size:clamp(14px,2.4vw,22px);color:#fff;
   text-shadow:0 0 3px #000,0 0 3px #000,1px 1px 2px #000;will-change:transform;animation:dmfly linear forwards;}
 .dm span.sys{color:var(--gold);}
-.dm span.rk{color:#ffb38a;}
+.dm span.rk{color:var(--acc-l);}
 .dm span.me{border:1.5px solid #fff8;border-radius:6px;padding:0 6px;}
 @keyframes dmfly{from{transform:translateX(0);}to{transform:translateX(calc(-100vw - 100%));}}
 
 /* 橫幅（火箭通知） */
-.banner{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:7;background:linear-gradient(90deg,#ff7a3a,#c9483a);color:#fff;font-weight:800;
+.banner{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:7;background:var(--acc);color:#fff;font-weight:800;
   padding:6px 14px;border-radius:999px;font-size:14px;box-shadow:0 4px 16px #0008;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis;animation:bannerIn .25s ease-out;}
 @keyframes bannerIn{from{opacity:0;transform:translate(-50%,-8px);}to{opacity:1;transform:translate(-50%,0);}}
 
@@ -66,21 +85,21 @@ input,select{font:inherit;}
 .chat{grid-area:chat;display:flex;flex-direction:column;min-height:0;border-top:1px solid var(--line);}
 .msgs{flex:1;min-height:0;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:4px;-webkit-overflow-scrolling:touch;}
 .msg{font-size:14px;line-height:1.45;word-break:break-word;}
-.msg .n{font-weight:700;color:#8fb6ff;margin-right:6px;}
+.msg .n{font-weight:700;color:#d6cbb8;margin-right:6px;}
 .msg.me .n{color:var(--gold);}
 .msg .n{cursor:pointer;}
-.at{color:#8fd3ff;font-weight:700;}
+.at{color:var(--acc-l);font-weight:700;}
 .atme{background:var(--gold);color:#111;border-radius:4px;padding:0 3px;}
-.msg.tagme{background:#3a2f12;border-left:3px solid var(--gold);padding:2px 6px;border-radius:4px;}
+.msg.tagme{background:#1b1b1f;border-left:3px solid var(--gold);padding:2px 6px;border-radius:4px;}
 .dm span.tagme{color:#111;background:var(--gold);border-radius:6px;padding:0 6px;text-shadow:none;}
 .chat{position:relative;}
 .atpop{position:absolute;left:10px;right:10px;bottom:calc(62px + var(--safe-b));background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:4px;display:flex;flex-direction:column;gap:2px;z-index:20;box-shadow:0 6px 20px #0008;max-height:220px;overflow:auto;}
 .atpop[hidden]{display:none;}
 .atpop button{background:none;border:0;text-align:left;padding:9px 10px;border-radius:8px;font-size:15px;}
-.atpop button:first-child,.atpop button:hover{background:#2c3240;}
+.atpop button:first-child,.atpop button:hover{background:#2a2a2f;}
 .msg.sys{color:var(--gold);font-size:13px;}
-.msg.rk{color:#ffb38a;font-weight:700;}
-.msg.bot .n{color:#9fd3b8;}
+.msg.rk{color:var(--acc-l);font-weight:700;}
+.msg.bot .n{color:#b7b0a5;}
 .inbar{display:flex;gap:6px;align-items:center;padding:8px 10px calc(8px + var(--safe-b));border-top:1px solid var(--line);background:var(--panel);}
 .inbar input[type=text]{flex:1;min-width:0;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);padding:0 12px;font-size:16px;}
 .inbar .send{height:42px;padding:0 14px;border-radius:10px;border:0;background:var(--acc);font-weight:700;}
@@ -101,16 +120,16 @@ input,select{font:inherit;}
 .prow .pos{font-size:11px;color:var(--muted);}
 .prow .mid{flex:1;min-width:0;}
 .prow .pas{display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;}
-.pa{font-size:10.5px;padding:0 5px;border-radius:4px;background:#2d323d;color:#cfd4dd;line-height:17px;}
-.pa.h{background:#7a2d24;color:#fff;} .pa.hr{background:var(--gold);color:#111;} .pa.k{background:#2d3a57;} .pa.bb{background:#1f4636;}
+.pa{font-size:10.5px;padding:0 5px;border-radius:4px;background:#2a2a2f;color:#d6d0c6;line-height:17px;}
+.pa.h{background:var(--acc);color:#fff;} .pa.hr{background:var(--gold);color:#111;} .pa.k{background:var(--acc-d);} .pa.bb{background:#2c2c31;}
 .prow .line{font-size:13px;font-weight:700;white-space:nowrap;text-align:right;}
-.prow .rk{font-size:11px;color:#ffb38a;text-align:right;white-space:nowrap;}
-.tag{font-size:10px;padding:0 6px;border-radius:999px;line-height:16px;background:#2d323d;color:var(--muted);white-space:nowrap;}
-.tag.hot{background:var(--acc);color:#fff;} .tag.ok{background:#1f4636;color:#bfe8d3;}
-.rocketFly{position:absolute;left:-60%;top:50%;transform:translateY(-50%);font-size:22px;white-space:nowrap;pointer-events:none;z-index:2;animation:rfly 1.6s cubic-bezier(.3,.1,.3,1) forwards;filter:drop-shadow(0 0 6px #ff8a3a);}
+.prow .rk{font-size:11px;color:var(--acc-l);text-align:right;white-space:nowrap;}
+.tag{font-size:10px;padding:0 6px;border-radius:999px;line-height:16px;background:#2a2a2f;color:var(--muted);white-space:nowrap;}
+.tag.hot{background:var(--acc);color:#fff;} .tag.ok{background:#2c2c31;color:#d9d3c8;}
+.rocketFly{position:absolute;left:-60%;top:50%;transform:translateY(-50%);font-size:22px;white-space:nowrap;pointer-events:none;z-index:2;animation:rfly 1.6s cubic-bezier(.3,.1,.3,1) forwards;filter:drop-shadow(0 0 6px var(--acc));}
 @keyframes rfly{0%{left:-60%;}100%{left:110%;}}
 .prow.glow{animation:glow 1.6s ease-out;}
-@keyframes glow{0%{background:#5a2a1c;}100%{background:var(--panel2);}}
+@keyframes glow{0%{background:var(--acc-d);}100%{background:var(--panel2);}}
 .plus{position:absolute;right:10px;top:4px;color:var(--gold);font-weight:800;font-size:14px;animation:plus 1s ease-out forwards;pointer-events:none;}
 @keyframes plus{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(-16px);}}
 .rkBoard{background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:13px;}
@@ -118,18 +137,19 @@ input,select{font:inherit;}
 .lastp .mz{display:grid;grid-template-columns:repeat(5,9px);grid-template-rows:repeat(5,9px);gap:1px;flex:none;}
 .lastp .mzw{display:flex;flex-direction:column;align-items:center;gap:3px;flex:none;}
 .lastp .mzw small{font-size:10px;line-height:1;color:var(--muted);white-space:nowrap;}
-.lastp .mz i{background:#2a2f3a;border-radius:1px;}
-.lastp .mz i.in{background:#3b4352;}
+.lastp .mz i{background:#26262b;border-radius:1px;}
+.lastp .mz i.in{background:#38383f;}
 .lastp .mz i.hit{background:var(--gold);box-shadow:0 0 6px var(--gold);}
 .lastp .lt{font-size:14px;line-height:1.4;min-width:0;}
 .lastp .lt b{font-size:15px;}
 .lastp .res{display:inline-block;font-size:12px;font-weight:700;padding:0 7px;border-radius:999px;margin-left:4px;}
-.res.ball{background:#1f4636;color:#bfe8d3;} .res.str{background:#5a2a1c;color:#ffd2c2;} .res.foul{background:#3b3f4a;color:#ddd;} .res.hit{background:var(--gold);color:#111;} .res.out{background:#2d3a57;color:#cfe0ff;}
+.res.ball{background:#2c2c31;color:#d9d3c8;} .res.str{background:var(--acc-d);color:#f1c6c8;} .res.foul{background:#34343a;color:#ddd;} .res.hit{background:var(--gold);color:#111;} .res.out{background:var(--acc-d);color:var(--text);}
 .rkBoard .r{display:flex;justify-content:space-between;padding:2px 0;}
 
 /* ---------- 手機分頁 ---------- */
 .mtabs{display:none;}
-.demobar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 10px;background:#3a2f12;color:#f6e3b0;font-size:12.5px;border-bottom:1px solid var(--line);}
+.mtabs .sponsorbtn{display:none;}
+.demobar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 10px;background:#1b1b1f;border-left:3px solid var(--acc);color:var(--text);font-size:12.5px;border-bottom:1px solid var(--line);}
 .demobar button{background:#fff2;border:1px solid #fff3;border-radius:6px;height:30px;padding:0 9px;font-size:12.5px;}
 .demobar .cap{flex:1;min-width:160px;}
 
@@ -143,7 +163,7 @@ input,select{font:inherit;}
 .sheet .pintro .intro{font-size:15px;font-weight:700;color:var(--gold);}
 .bigbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .bigbtns button{height:60px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);font-size:16px;font-weight:700;}
-.bigbtns .rocket{background:linear-gradient(135deg,#ff7a3a,#c9483a);border:0;}
+.bigbtns .rocket{background:var(--acc);border:0;}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:6px;margin:10px 0;}
 .kv div{background:var(--panel2);border-radius:10px;padding:8px;text-align:center;}
 .kv .k{font-size:11px;color:var(--muted);} .kv .v{font-size:19px;font-weight:800;}
@@ -173,8 +193,10 @@ input,select{font:inherit;}
   .sb .score{font-size:16px;}
   .sb .pill{padding:2px 6px;font-size:12px;}
   .sb .iconbtn{position:absolute;right:8px;top:calc(5px + var(--safe-t));}
-  .sb .iconbtn.demobtn{right:52px;}
-  .sb{position:relative;padding-right:100px;}
+  .sb .iconbtn.demobtn{right:50px;top:calc(10px + var(--safe-t));}
+  .sb{position:relative;padding-right:92px;}
+  .sb .sponsorbtn{display:none;}
+  .mtabs .sponsorbtn{display:block;flex:none;height:30px;margin:5px 8px 5px 4px;padding:0 12px;border-radius:999px;background:var(--acc);color:#fff;border:0;}
   .sb .who{flex-basis:100%;}
   .demobar{padding:4px 8px;gap:4px;}
   .demobar .cap{flex-basis:100%;order:9;font-size:11.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
@@ -194,6 +216,7 @@ input,select{font:inherit;}
 </style>
 </head>
 <body>
+<div id="boot"><img alt="NCKU" src="data:image/jpeg;base64,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"><div class="t">BALLGAME IS LOADING<i>.</i><i>.</i><i>.</i></div></div>
 <div id="app" class="app"></div>
 <script id="demo-data" type="application/json">__DEMO_DATA__</script>
 <script>
@@ -217,6 +240,11 @@ var HITS=['1B','2B','3B','HR'];
 var TOURNEY_ON=true;
 var TOURNEY_NUMS={'楊睿升':'1','黃中彥':'2','陳聲皓':'3','張永宸':'4','羅博强':'5','林正展':'6','黃昱綸':'7','黃子承':'8','王學睿':'9','高子淳':'10','王昱峻':'11','葉詠翔':'12','林建曄':'13','謝安綸':'14','王祥予':'15','許宏倫':'16','王曦賢':'17','顏辰峻':'18','蔡政哲':'19','蔡益宸':'20','吳尚霖':'21','張冠瑀':'22','謝竺庭':'23','張晉緁':'24'};
 var TOURNEY_ALIAS={'羅博強':'羅博强','王祥宇':'王祥予','張晉節':'張晉緁'};
+/* 贊助：球隊轉帳帳戶（QR Code 之後放 sponsor-qr.png，再把 qr 設成檔名） */
+var SPONSOR={bank:'中華郵政', code:'700', acct:'0031071-0891691', qr:''};
+var BOOT_T0=Date.now();
+function hideBoot(){ var b=document.getElementById('boot'); if(!b||b.dataset.h) return; b.dataset.h='1'; setTimeout(function(){ b.classList.add('hide'); setTimeout(function(){ b.remove(); },500); }, Math.max(0,1200-(Date.now()-BOOT_T0))); }
+setTimeout(hideBoot, 8000);
 /* 球員介紹（players.json：背號、系級、一句話介紹） */
 var PLAYERS={}, PLAYER_ALIAS={'羅博強':'羅博强','王祥宇':'王祥予','張晉節':'張晉緁','李友佳':'李有佳','蔡文偉':'蔡文瑋','謝安倫':'謝安綸','葉承銨':'葉宸銨','許朝威':'許昭威','謝竺亭':'謝竺庭'};
 function pinfo(n){ n=String(n||'').trim(); return PLAYERS[n]||PLAYERS[PLAYER_ALIAS[n]]||null; }
@@ -399,11 +427,11 @@ function announce(g, from){
   for(var i=from;i<g.events.length;i++){
     var e=g.events[i];
     if(e.type==='sub'){ var ourSub=subTeam(e)===x.ourSide;
-      if(e.inPlayerName) sysMsg((ourSub?'🔄 成大':'🔄 對手')+(e.kind||'換人')+'：'+e.inPlayerName+(e.outPlayerName?'（換下 '+e.outPlayerName+'）':''), false); continue; }
+      if(e.inPlayerName) sysMsg((ourSub?'成大':'對手')+(e.kind||'換人')+'：'+e.inPlayerName+(e.outPlayerName?'（換下 '+e.outPlayerName+'）':''), false); continue; }
     var r=S.model.today.find(function(q){return q.ei===i;}); if(!r||!r.paEnd||!r.out) continue;
     var ours=r.ourBat, big=HITS.indexOf(r.out)>=0||r.out==='HR';
-    if(ours) sysMsg((r.out==='HR'?'💥 ':(big?'⚾ ':'· '))+r.bat+' '+outLabel(r)+(r.out==='HR'?'！！':(big?'！':'')), big);
-    else if(r.ourPit && r.out==='K') sysMsg('🔥 '+r.pit+' 三振 '+r.bat+'！', true);
+    if(ours) sysMsg((r.out==='HR'?'全壘打｜':(big?'':'· '))+r.bat+' '+outLabel(r)+(r.out==='HR'?'！！':(big?'！':'')), big);
+    else if(r.ourPit && r.out==='K') sysMsg(r.pit+' 三振 '+r.bat+'！', true);
   }
 }
 
@@ -449,7 +477,7 @@ function receive(m, mine, quiet){
   appendMsg(m, mine);
   if(quiet){ if(m.kind==='rocket') renderSide(); return; }   /* 剛進房間載入的舊訊息：只列出，不播特效 */
   if(m.kind==='rocket'){ renderSide(); rocketFx(m.to, m.from); fly(m.from+' 🚀 '+m.to, 'rk'); }   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
-  else if(m.kind==='chat'||m.kind==='bot'){ var tm=mentionsMe(m); fly(m.text, mine?'me':(tm?'tagme':'')); if(tm){ toast('🔔 '+m.from+' 提到你'); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(e){} } }
+  else if(m.kind==='chat'||m.kind==='bot'){ var tm=mentionsMe(m); fly(m.text, mine?'me':(tm?'tagme':'')); if(tm){ toast(m.from+' 提到你'); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(e){} } }
 }
 /* ===== 暱稱（選填）：沒填就用「匿名＋動物」，每台裝置固定一個 ===== */
 var ANIMALS=['浣熊','水獺','柴犬','企鵝','狐狸','熊貓','海豹','刺蝟','樹懶','貓頭鷹','小鹿','松鼠','河馬','無尾熊','袋鼠','羊駝','海獺','小貓','倉鼠','兔子','鸚鵡','海豚'];
@@ -582,7 +610,7 @@ function pseudoFull(v){ S.pseudo=true; v.classList.add('pseudo'); toast('建議�
 function toast(t){ var d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(function(){ d.remove(); }, 2200); }
 function render(){
   var app=document.getElementById('app');
-  if(!app.dataset.built){ app.innerHTML=shell(); app.dataset.built='1'; mountYT(); var box=document.getElementById('msgs'); box.innerHTML=S.log.map(function(m){return msgHTML(m,false);}).join(''); box.scrollTop=box.scrollHeight; }
+  if(!app.dataset.built){ app.innerHTML=shell(); app.dataset.built='1'; mountYT(); hideBoot(); var box=document.getElementById('msgs'); box.innerHTML=S.log.map(function(m){return msgHTML(m,false);}).join(''); box.scrollTop=box.scrollHeight; }
   else if(app.dataset.gid!==(S.cur?S.cur.id:'')){ var box2=document.getElementById('msgs'); box2.innerHTML=S.log.map(function(m){return msgHTML(m,false);}).join(''); box2.scrollTop=box2.scrollHeight; }
   app.dataset.gid=S.cur?S.cur.id:'';
   document.getElementById('sb').innerHTML=scorebar();
@@ -598,10 +626,10 @@ function shell(){
       '<div class="videoWrap" id="vwrap">'+
         (hasVid?'<div id="yt"></div>':'<div class="vph"><b>直播播放區</b><span>直播還沒開始</span><span class="muted">開播後這裡會自動播放；彈幕、火箭現在就能用</span></div>')+
         '<div class="dm" id="dm"></div>'+
-        (hasVid?'<button class="unmute" id="unmute" data-act="mute">🔊 點我開聲音</button>':'')+
-        '<div class="vctl"><button data-act="dm">'+(S.dmOn?'彈幕 開':'彈幕 關')+'</button><button data-act="full">⛶ 全螢幕</button></div>'+
+        (hasVid?'<button class="unmute" id="unmute" data-act="mute">開聲音</button>':'')+
+        '<div class="vctl"><button data-act="dm">'+(S.dmOn?'彈幕 開':'彈幕 關')+'</button><button data-act="full">全螢幕</button></div>'+
       '</div>'+
-      '<div class="mtabs"><button data-act="tab" data-v="lineup">陣容</button><button data-act="tab" data-v="chat">聊天</button></div>'+
+      '<div class="mtabs"><button data-act="tab" data-v="lineup">陣容</button><button data-act="tab" data-v="chat">聊天</button><button class="sponsorbtn" data-act="sponsor">贊助</button></div>'+
       '<div class="side"><div class="sideScroll" id="side"></div></div>'+
       '<div class="chat"><div class="msgs" id="msgs"></div>'+
         '<div class="atpop" id="atpop" hidden></div><div class="inbar"><input type="text" id="chat-in" maxlength="80" placeholder="'+esc(inPh())+'" enterkeyhint="send" autocomplete="off">'+
@@ -611,7 +639,7 @@ function shell(){
 }
 function scorebar(){
   var x=situation();
-  var gear='<span class="sp"></span><button class="iconbtn demobtn'+(S.mode==='demo'?' on':'')+'" data-act="demoToggle" title="'+(S.mode==='demo'?'離開 DEMO':'看 DEMO 示範')+'">'+(S.mode==='demo'?'離開':'DEMO')+'</button><button class="iconbtn" data-act="settings" title="設定">⚙</button>';
+  var gear='<span class="sp"></span><button class="sponsorbtn" data-act="sponsor">贊助球隊</button><button class="iconbtn demobtn'+(S.mode==='demo'?' on':'')+'" data-act="demoToggle" title="'+(S.mode==='demo'?'離開 DEMO':'看 DEMO 示範')+'">'+(S.mode==='demo'?'離開':'DEMO')+'</button><button class="iconbtn" data-act="settings" title="設定" aria-label="設定"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>';
   if(!x){ return '<b data-act="secret">成大棒球 線上觀賽</b><span class="muted">'+(S.mode==='live'?(S.live.err?'連線問題：'+esc(S.live.err):'連線中…'):'尚未連到比賽')+'</span>'+gear; }
   var st=x.st, ours=x.names[x.ourSide], opp=x.names[x.ourSide==='home'?'away':'home'], oppSide=x.ourSide==='home'?'away':'home';
   var outs=''; for(var i=0;i<3;i++) outs+='<i'+(i<(st.outs||0)?' class="on"':'')+'></i>';
@@ -623,14 +651,14 @@ function scorebar(){
     '<span class="pill">'+(st.balls||0)+'B '+(st.strikes||0)+'S</span>'+dia+gear+
     '<span class="who">打者 <b>'+(x.batter?(dispNum(x.batter)?'#'+esc(dispNum(x.batter))+' ':'')+esc(x.batter.name):'—')+'</b>'+(bl?' 今日 '+bl.txt:'')+
     '　投手 <b>'+(x.pitcher?esc(x.pitcher.name):'—')+'</b>'+(pt?' '+pt.n+' 球':'')+
-    (S.mode==='live'?'　<span class="muted">'+(S.live.err?'⚠ '+esc(S.live.err):'即時 '+(S.live.t?new Date(S.live.t).toLocaleTimeString():''))+'</span>':'')+'</span>';
+    (S.mode==='live'?'　<span class="muted">'+(S.live.err?'連線問題：'+esc(S.live.err):'即時 '+(S.live.t?new Date(S.live.t).toLocaleTimeString():''))+'</span>':'')+'</span>';
 }
 function demobar(){
   if(S.mode!=='demo'||!S.demo) return '';
   var d=S.demo, fr=d.frames[d.i];
   return '<b>DEMO</b><span>'+(d.i+1)+'/'+d.frames.length+'</span><span class="cap">'+esc(fr.cap||'')+'</span>'+
-    '<button data-act="prev"'+(d.i===0?' disabled':'')+'>◀</button><button data-act="next"'+(d.i===d.frames.length-1?' disabled':'')+'>下一球 ▶</button>'+
-    '<button data-act="auto">'+(S.autoTimer?'⏸ 自動':'▶ 自動')+'</button><button data-act="bots">'+(S.bots?'模擬觀眾 開':'模擬觀眾 關')+'</button><button data-act="exitDemo">離開 DEMO</button>';
+    '<button data-act="prev"'+(d.i===0?' disabled':'')+'>上一球</button><button data-act="next"'+(d.i===d.frames.length-1?' disabled':'')+'>下一球</button>'+
+    '<button data-act="auto">'+(S.autoTimer?'暫停自動':'自動播放')+'</button><button data-act="bots">'+(S.bots?'模擬觀眾 開':'模擬觀眾 關')+'</button><button data-act="exitDemo">離開 DEMO</button>';
 }
 /* ===== 剛剛這球：直接讀紀錄系統最新一球的球種、進壘點、結果 ===== */
 var RES_LBL={ball:['壞球','ball'],strike_look:['好球（看）','str'],strike_swing:['揮空','str'],foul:['界外','foul'],hbp:['觸身','ball']};
@@ -653,7 +681,7 @@ function lastPitchHTML(x){
 function renderSide(){
   var el=document.getElementById('side'); if(!el) return;
   var x=situation();
-  if(!x){ el.innerHTML='<div class="muted" style="padding:20px;text-align:center">等待比賽資料…<br><br><button class="btn" data-act="settings">⚙ 設定資料來源</button></div>'; return; }
+  if(!x){ el.innerHTML='<div class="muted" style="padding:20px;text-align:center">等待比賽資料…<br><br><button class="btn" data-act="settings">設定資料來源</button></div>'; return; }
   var team=x.g.teams[x.ourSide]||{lineup:[],bench:[]}, lu=team.lineup||[], rc=rocketCounts().to;
   var idx=(x.st.battingIndex||{})[x.ourSide]; if(idx==null||idx<0) idx=-1;
   function rkTxt(n){ return rc[n]?'🚀×'+rc[n]:''; }
@@ -717,7 +745,7 @@ function renderSheet(){
     h+='<h3>'+(dispNum(p)?'#'+esc(dispNum(p))+' ':'')+esc(sh.name)+'</h3><div class="sub">'+esc(POS_LABEL[p.pos]||p.pos||'')+(tb.pas.length?' · 今日 '+tb.txt:'')+(tp.n?' · 今日 '+tp.n+' 球':'')+(rc?' · 🚀×'+rc:'')+'</div>';
     var pi=pinfo(sh.name); if(pi&&(pi.dept||pi.school||pi.intro)) h+='<div class="pintro">'+((pi.dept||pi.school)?'<div class="dept">'+esc([pi.dept,pi.school].filter(Boolean).join(' · '))+'</div>':'')+(pi.intro?'<div class="intro">'+esc(pi.intro)+'</div>':'')+'</div>';
     if(!sh.view){
-      h+='<div class="bigbtns"><button data-act="pstats">📊 球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
+      h+='<div class="bigbtns"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
     } else {
       var se=seasonOf(sh.name), b=se.b, pp=se.p;
       if(tb.pas.length||!tp.n){
@@ -731,7 +759,7 @@ function renderSheet(){
           '<div class="muted">賽季投球（簡易）</div><div class="kv"><div><div class="k">用球數</div><div class="v">'+pp.n+'</div></div><div><div class="k">好球率</div><div class="v">'+pct(pp.n?pp.str/pp.n:null)+'</div></div><div><div class="k">三振</div><div class="v">'+pp.k+'</div></div><div><div class="k">四死</div><div class="v">'+(pp.bb+pp.hbp)+'</div></div></div>';
       }
       h+='<p class="muted">雛形：賽季數據由歷史比賽即時計算；正式版改讀賽前預先產生的「公開數據快照」。</p>'+
-        '<div class="bigbtns"><button data-act="pback">← 返回</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
+        '<div class="bigbtns"><button data-act="pback">返回</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
     }
     h+='<div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
   } else if(sh.type==='settings'){
@@ -746,6 +774,12 @@ function renderSheet(){
   } else if(sh.type==='nick'){
     h+='<h3>取個暱稱</h3><div class="sub">留言和刷火箭時會顯示這個名字</div><div class="fieldrow"><input id="nick-in" maxlength="12" placeholder="例如：成大校友"></div>'+
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveNick">確定</button></div>';
+  } else if(sh.type==='sponsor'){
+    h+='<h3>贊助成大乙棒</h3><div class="sub">謝謝你的支持！轉帳到球隊帳戶：</div>'+
+      '<div class="spkv"><div><span>銀行</span><b>'+esc(SPONSOR.bank)+'</b></div><div><span>銀行代號</span><b>'+esc(SPONSOR.code)+'</b></div>'+
+      '<div><span>帳號</span><span><b>'+esc(SPONSOR.acct)+'</b><button data-act="copyAcct">複製</button></span></div></div>'+
+      '<div class="spqr">'+(SPONSOR.qr?'<img alt="轉帳 QR Code" src="'+esc(SPONSOR.qr)+'">':'QR Code 即將提供')+'</div>'+
+      '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
   } else if(sh.type==='stats'){
     var cnt=rocketCounts(), tos=Object.keys(cnt.to).sort(function(a,b){return cnt.to[b]-cnt.to[a];}), froms=Object.keys(cnt.from).sort(function(a,b){return cnt.from[b]-cnt.from[a];});
     var total=tos.reduce(function(a,n){return a+cnt.to[n];},0), chats=S.log.filter(function(m){return m.kind==='chat'||m.kind==='bot';}).length;
@@ -777,6 +811,8 @@ document.addEventListener('click',function(ev){
   else if(a==='pback'){ S.sheet.view=null; renderSheet(); }
   else if(a==='rocket'){ var nm=t.dataset.name; S.sheet=null; renderSheet(); sendRocket(nm); }
   else if(a==='close'){ S.sheet=null; renderSheet(); }
+  else if(a==='sponsor'){ S.sheet={type:'sponsor'}; renderSheet(); }
+  else if(a==='copyAcct'){ var acct=SPONSOR.acct.replace(/\D/g,''); (navigator.clipboard?navigator.clipboard.writeText(acct):Promise.reject()).then(function(){ toast('已複製帳號 '+acct); },function(){ toast('帳號：'+acct); }); }
   else if(a==='settings'){ S.sheet={type:'settings'}; renderSheet(); }
   else if(a==='stats'){ S.sheet={type:'stats'}; renderSheet(); }
   else if(a==='saveNick'){ var v=(document.getElementById('nick-in').value||'').trim().slice(0,12); if(!v) return; S.cfg.nick=v; saveJSON(CFG_KEY,S.cfg); S.sheet=null; renderSheet(); var ci=document.getElementById('chat-in'); if(ci) ci.placeholder='以「'+v+'」留言…'; var cb=nickCb; nickCb=null; if(cb) cb(); }

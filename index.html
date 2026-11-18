@@ -66,6 +66,16 @@ input,select{font:inherit;}
 .msg{font-size:14px;line-height:1.45;word-break:break-word;}
 .msg .n{font-weight:700;color:#8fb6ff;margin-right:6px;}
 .msg.me .n{color:var(--gold);}
+.msg .n{cursor:pointer;}
+.at{color:#8fd3ff;font-weight:700;}
+.atme{background:var(--gold);color:#111;border-radius:4px;padding:0 3px;}
+.msg.tagme{background:#3a2f12;border-left:3px solid var(--gold);padding:2px 6px;border-radius:4px;}
+.dm span.tagme{color:#111;background:var(--gold);border-radius:6px;padding:0 6px;text-shadow:none;}
+.chat{position:relative;}
+.atpop{position:absolute;left:10px;right:10px;bottom:calc(62px + var(--safe-b));background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:4px;display:flex;flex-direction:column;gap:2px;z-index:20;box-shadow:0 6px 20px #0008;max-height:220px;overflow:auto;}
+.atpop[hidden]{display:none;}
+.atpop button{background:none;border:0;text-align:left;padding:9px 10px;border-radius:8px;font-size:15px;}
+.atpop button:first-child,.atpop button:hover{background:#2c3240;}
 .msg.sys{color:var(--gold);font-size:13px;}
 .msg.rk{color:#ffb38a;font-weight:700;}
 .msg.bot .n{color:#9fd3b8;}
@@ -102,6 +112,15 @@ input,select{font:inherit;}
 .plus{position:absolute;right:10px;top:4px;color:var(--gold);font-weight:800;font-size:14px;animation:plus 1s ease-out forwards;pointer-events:none;}
 @keyframes plus{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(-16px);}}
 .rkBoard{background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:13px;}
+.lastp{display:flex;gap:10px;align-items:center;background:var(--panel2);border-radius:10px;padding:8px 10px;margin-bottom:4px;}
+.lastp .mz{display:grid;grid-template-columns:repeat(5,9px);grid-template-rows:repeat(5,9px);gap:1px;flex:none;}
+.lastp .mz i{background:#2a2f3a;border-radius:1px;}
+.lastp .mz i.in{background:#3b4352;}
+.lastp .mz i.hit{background:var(--gold);box-shadow:0 0 6px var(--gold);}
+.lastp .lt{font-size:14px;line-height:1.4;min-width:0;}
+.lastp .lt b{font-size:15px;}
+.lastp .res{display:inline-block;font-size:12px;font-weight:700;padding:0 7px;border-radius:999px;margin-left:4px;}
+.res.ball{background:#1f4636;color:#bfe8d3;} .res.str{background:#5a2a1c;color:#ffd2c2;} .res.foul{background:#3b3f4a;color:#ddd;} .res.hit{background:var(--gold);color:#111;} .res.out{background:#2d3a57;color:#cfe0ff;}
 .rkBoard .r{display:flex;justify-content:space-between;padding:2px 0;}
 
 /* ---------- 手機分頁 ---------- */
@@ -398,22 +417,43 @@ function receive(m, mine, quiet){
   appendMsg(m, mine);
   if(quiet){ if(m.kind==='rocket') renderSide(); return; }   /* 剛進房間載入的舊訊息：只列出，不播特效 */
   if(m.kind==='rocket'){ renderSide(); rocketFx(m.to, m.from); fly(m.from+' 🚀 '+m.to, 'rk'); }   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
-  else if(m.kind==='chat'||m.kind==='bot'){ fly(m.text, mine?'me':''); }
+  else if(m.kind==='chat'||m.kind==='bot'){ var tm=mentionsMe(m); fly(m.text, mine?'me':(tm?'tagme':'')); if(tm){ toast('🔔 '+m.from+' 提到你'); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(e){} } }
 }
+/* ===== 暱稱（選填）：沒填就用「匿名＋動物」，每台裝置固定一個 ===== */
+var ANIMALS=['浣熊','水獺','柴犬','企鵝','狐狸','熊貓','海豹','刺蝟','樹懶','貓頭鷹','小鹿','松鼠','河馬','無尾熊','袋鼠','羊駝','海獺','小貓','倉鼠','兔子','鸚鵡','海豚'];
+function anonName(){ if(!S.cfg.anon){ S.cfg.anon='匿名'+ANIMALS[Math.floor(Math.random()*ANIMALS.length)]; saveJSON(CFG_KEY,S.cfg); } return S.cfg.anon; }
+function myName(){ return S.cfg.nick||anonName(); }
+function inPh(){ return '以「'+myName()+'」留言…（打 @ 可以點名）'; }
+/* ===== @ 點名 ===== */
+function escRe(x){ return String(x).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function mentionsMe(m){ if(!m||m.kind!=='chat'||m.from===myName()) return false; return new RegExp('@'+escRe(myName())+'(?![^\\s@])').test(m.text||''); }
+function richText(t){ var me=myName(); return esc(t).replace(/@([^\s@<>&"]{1,12})/g,function(all,n){ return '<span class="at'+(n===me?' atme':'')+'">@'+n+'</span>'; }); }
+function atNames(q){ var seen={}, out=[], me=myName(); for(var i=S.log.length-1;i>=0;i--){ var f=S.log[i].from; if(!f||f===me||seen[f]) continue; seen[f]=1; if(!q||f.indexOf(q)>=0) out.push(f); if(out.length>=6) break; } return out; }
+function atOpen(){ var p=document.getElementById('atpop'); return !!(p&&!p.hidden&&p.childElementCount>0); }
+function hideAt(){ var p=document.getElementById('atpop'); if(p){ p.hidden=true; p.innerHTML=''; } }
+function atQuery(inp){ var pos=inp.selectionStart==null?inp.value.length:inp.selectionStart; var m=/@([^\s@]*)$/.exec(inp.value.slice(0,pos)); return m?{q:m[1],start:pos-m[0].length,end:pos}:null; }
+function updateAt(){ var inp=document.getElementById('chat-in'), p=document.getElementById('atpop'); if(!inp||!p) return; var a=atQuery(inp); if(!a){ hideAt(); return; }
+  var ns=atNames(a.q); p.hidden=false;
+  if(!ns.length){ p.innerHTML='<div class="muted" style="padding:8px 10px">'+(S.log.length?'找不到「'+esc(a.q)+'」':'還沒有人留言，等有人說話就能 @ 他')+'</div>'; return; }
+  p.innerHTML=ns.map(function(n){ return '<button data-act="atpick" data-name="'+esc(n)+'">@'+esc(n)+'</button>'; }).join(''); }
+function pickAt(name){ var inp=document.getElementById('chat-in'); if(!inp) return; var a=atQuery(inp); var v=inp.value;
+  if(a){ inp.value=v.slice(0,a.start)+'@'+name+' '+v.slice(a.end); var c=a.start+name.length+2; try{ inp.setSelectionRange(c,c); }catch(e){} } else { insertAt(name); return; }
+  hideAt(); inp.focus(); }
+function insertAt(name){ if(!name||name===myName()) return; var inp=document.getElementById('chat-in'); if(!inp) return; var v=inp.value; inp.value=(v&&!/\s$/.test(v)?v+' ':v)+'@'+name+' '; inp.focus(); var c=inp.value.length; try{ inp.setSelectionRange(c,c); }catch(e){} hideAt(); }
+document.addEventListener('input',function(ev){ if(ev.target.id==='chat-in') updateAt(); });
+document.addEventListener('click',function(ev){ if(!ev.target.closest('#atpop')&&ev.target.id!=='chat-in') hideAt(); },true);
 function sysMsg(text, toDm){ var m={id:'s'+uidm(), kind:'sys', text:text, t:Date.now()}; receive(m,false); if(toDm) fly(text,'sys'); }
 function send(){
   var inp=document.getElementById('chat-in'); if(!inp) return; var t=inp.value.trim(); if(!t) return;
-  if(!S.cfg.nick){ askNick(function(){ send(); }); return; }
-  inp.value=''; publish({id:uidm(), kind:'chat', from:S.cfg.nick, text:t.slice(0,80), t:Date.now()});
+  inp.value=''; hideAt(); publish({id:uidm(), kind:'chat', from:myName(), text:t.slice(0,80), t:Date.now()});
 }
 function sendRocket(to){
-  if(!S.cfg.nick){ askNick(function(){ sendRocket(to); }); return; }
-  publish({id:uidm(), kind:'rocket', from:S.cfg.nick, to:to, t:Date.now()});
+  publish({id:uidm(), kind:'rocket', from:myName(), to:to, t:Date.now()});
 }
 function msgHTML(m, mine){
   if(m.kind==='sys') return '<div class="msg sys">'+esc(m.text)+'</div>';
   if(m.kind==='rocket') return '<div class="msg rk">🚀 '+esc(m.from)+' 給 '+esc(m.to)+' 刷了一排火箭！</div>';
-  return '<div class="msg'+(m.from===S.cfg.nick?' me':'')+(m.kind==='bot'?' bot':'')+'"><span class="n">'+esc(m.from)+'</span>'+esc(m.text)+'</div>';
+  return '<div class="msg'+(m.from===myName()?' me':'')+(mentionsMe(m)?' tagme':'')+(m.kind==='bot'?' bot':'')+'"><span class="n" data-act="mention" data-name="'+esc(m.from)+'" title="點名字可以 @ 他">'+esc(m.from)+'</span>'+richText(m.text)+'</div>';
 }
 function appendMsg(m, mine){
   var box=document.getElementById('msgs'); if(!box) return;
@@ -531,7 +571,7 @@ function shell(){
       '<div class="mtabs"><button data-act="tab" data-v="lineup">陣容</button><button data-act="tab" data-v="chat">聊天</button></div>'+
       '<div class="side"><div class="sideScroll" id="side"></div></div>'+
       '<div class="chat"><div class="msgs" id="msgs"></div>'+
-        '<div class="inbar"><input type="text" id="chat-in" maxlength="80" placeholder="'+(S.cfg.nick?'以「'+esc(S.cfg.nick)+'」留言…':'說點什麼…（第一次會請你取暱稱）')+'" enterkeyhint="send" autocomplete="off">'+
+        '<div class="atpop" id="atpop" hidden></div><div class="inbar"><input type="text" id="chat-in" maxlength="80" placeholder="'+esc(inPh())+'" enterkeyhint="send" autocomplete="off">'+
         '<label class="tog"><input type="checkbox" id="dm-tog"'+(S.dmOn?' checked':'')+'>彈幕</label><button class="send" data-act="send">送出</button></div>'+
       '</div>'+
     '</div>';
@@ -559,6 +599,24 @@ function demobar(){
     '<button data-act="prev"'+(d.i===0?' disabled':'')+'>◀</button><button data-act="next"'+(d.i===d.frames.length-1?' disabled':'')+'>下一球 ▶</button>'+
     '<button data-act="auto">'+(S.autoTimer?'⏸ 自動':'▶ 自動')+'</button><button data-act="bots">'+(S.bots?'模擬觀眾 開':'模擬觀眾 關')+'</button><button data-act="exitDemo">離開 DEMO</button>';
 }
+/* ===== 剛剛這球：直接讀紀錄系統最新一球的球種、進壘點、結果 ===== */
+var RES_LBL={ball:['壞球','ball'],strike_look:['好球（看）','str'],strike_swing:['揮空','str'],foul:['界外','foul'],hbp:['觸身','ball']};
+function zoneText(z){ if(z==null||isNaN(z)) return ''; z=+z; var r=Math.floor(z/5), c=z%5; if(r>=1&&r<=3&&c>=1&&c<=3) return '好球帶'+['偏高','中間','偏低'][r-1]; return '好球帶外'+(r===0?'・偏高':(r===4?'・偏低':'')); }
+function lastPitchHTML(x){
+  var ev=x.g.events, e=null, n=0;
+  for(var i=ev.length-1;i>=0;i--){ if(ev[i].type==='pitch'||ev[i].type==='battedball'){ e=ev[i]; break; } }
+  if(!e) return '';
+  /* 這個打席第幾球 */
+  for(var j=ev.length-1;j>=0;j--){ var q=ev[j]; if(q.type!=='pitch'&&q.type!=='battedball') continue; if(q.batterName!==e.batterName||q.inningBefore!==e.inningBefore||q.halfBefore!==e.halfBefore) break; n++; }
+  var res;
+  if(e.type==='battedball'){ var o=paOut(e); res=OUT_LBL[o]?[OUT_LBL[o],HITS.indexOf(o)>=0?'hit':'out']:[(e.trajectory||'擊球')+'出局','out']; }
+  else { res=RES_LBL[e.pitchResult]||[e.pitchResult||'','foul']; if(e.finalOutcome==='三振看'||e.finalOutcome==='三振揮') res=['三振','str']; if(e.finalOutcome==='BB') res=['四壞保送','ball']; }
+  var cells=''; for(var k=0;k<25;k++){ var rr=Math.floor(k/5), cc=k%5; cells+='<i class="'+(rr>=1&&rr<=3&&cc>=1&&cc<=3?'in':'')+(e.zone!=null&&+e.zone===k?' hit':'')+'"></i>'; }
+  var cnt=(e.ballsAfter!=null&&e.strikesAfter!=null&&e.type==='pitch'&&!e.finalOutcome)?'（'+e.ballsAfter+'-'+e.strikesAfter+'）':'';
+  return '<div class="sec">剛剛這球</div><div class="lastp"><div class="mz">'+cells+'</div><div class="lt">'+
+    '<b>'+esc(e.pitchType||'球種未記')+'</b><span class="res '+res[1]+'">'+esc(res[0])+'</span>'+esc(cnt)+'<br>'+
+    '<span class="muted">'+esc(zoneText(e.zone))+(zoneText(e.zone)?' · ':'')+esc(e.pitcherName||'')+' 對 '+esc(e.batterName||'')+' 第 '+n+' 球</span></div></div>';
+}
 function renderSide(){
   var el=document.getElementById('side'); if(!el) return;
   var x=situation();
@@ -566,7 +624,7 @@ function renderSide(){
   var team=x.g.teams[x.ourSide]||{lineup:[],bench:[]}, lu=team.lineup||[], rc=rocketCounts().to;
   var idx=(x.st.battingIndex||{})[x.ourSide]; if(idx==null||idx<0) idx=-1;
   function rkTxt(n){ return rc[n]?'🚀×'+rc[n]:''; }
-  var h='<div class="sec">打序'+(x.weBat?'　<span class="tag hot">進攻中</span>':'　<span class="tag">守備中</span>')+'</div>';
+  var h=lastPitchHTML(x)+'<div class="sec">打序'+(x.weBat?'　<span class="tag hot">進攻中</span>':'　<span class="tag">守備中</span>')+'</div>';
   lu.forEach(function(p,i){
     if(!p) return; var tb=todayBat(p.name), cur=x.weBat&&i===idx, next=(x.weBat?(idx+1)%lu.length:idx)===i;
     h+='<button class="prow'+(cur?' cur':'')+'" data-act="player" data-name="'+esc(p.name)+'">'+
@@ -645,7 +703,7 @@ function renderSheet(){
   } else if(sh.type==='settings'){
     var c=S.cfg;
     h+='<h3>設定</h3><div class="sub">雛形 v'+VERSION+'</div>'+
-      '<div class="fieldrow">暱稱<input id="cf-nick" maxlength="12" value="'+esc(c.nick||'')+'" placeholder="例如：成大校友"></div>'+
+      '<div class="fieldrow">暱稱（選填）<input id="cf-nick" maxlength="12" value="'+esc(c.nick||'')+'" placeholder="留空就顯示「'+esc(anonName())+'」"></div>'+
       '<details style="margin-bottom:10px"><summary class="muted">進階（測試用）</summary><div style="margin-top:8px">'+
       '<div class="fieldrow">測試用直播網址（留空＝使用官方設定'+(S.site.yt?'':'，目前官方尚未設定')+'）<input id="cf-yt" value="'+esc(c.ytTest||'')+'" placeholder="https://www.youtube.com/live/xxxxxxxxxxx"></div>'+
       '<div class="fieldrow">雲端網址（Apps Script）<input id="cf-api" value="'+esc(c.api||'')+'"></div></div></details>'+
@@ -675,6 +733,8 @@ document.addEventListener('click',function(ev){
   var t=ev.target.closest('[data-act]'); if(!t) return; var a=t.dataset.act;
   if(a==='send') send();
   else if(a==='secret') secretTap();
+  else if(a==='mention') insertAt(t.dataset.name);
+  else if(a==='atpick') pickAt(t.dataset.name);
   else if(a==='exitDemo') exitDemo();
   else if(a==='tab'){ S.tab=t.dataset.v; render(); if(S.tab==='chat'){ var b=document.getElementById('msgs'); b.scrollTop=b.scrollHeight; } }
   else if(a==='player'){ S.sheet={type:'player', name:t.dataset.name, view:null}; renderSheet(); }
@@ -686,7 +746,7 @@ document.addEventListener('click',function(ev){
   else if(a==='stats'){ S.sheet={type:'stats'}; renderSheet(); }
   else if(a==='saveNick'){ var v=(document.getElementById('nick-in').value||'').trim().slice(0,12); if(!v) return; S.cfg.nick=v; saveJSON(CFG_KEY,S.cfg); S.sheet=null; renderSheet(); var ci=document.getElementById('chat-in'); if(ci) ci.placeholder='以「'+v+'」留言…'; var cb=nickCb; nickCb=null; if(cb) cb(); }
   else if(a==='saveCfg'){
-    var oldYt=curYt(), oldSrc=wantSrc(); S.cfg.ytTest=document.getElementById('cf-yt').value.trim(); var nk=document.getElementById('cf-nick').value.trim().slice(0,12); if(nk) S.cfg.nick=nk;
+    var oldYt=curYt(), oldSrc=wantSrc(); S.cfg.ytTest=document.getElementById('cf-yt').value.trim(); var nk=document.getElementById('cf-nick').value.trim().slice(0,12); S.cfg.nick=nk; var ci0=document.getElementById('chat-in'); if(ci0) ci0.placeholder=inPh();
     S.cfg.api=document.getElementById('cf-api').value.trim()||S.site.api||DEFAULT_API; saveJSON(CFG_KEY,S.cfg); S.sheet=null;
     if(oldYt!==curYt()){ var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; }
     if(S.mode!=='demo') startLive();
@@ -701,7 +761,9 @@ document.addEventListener('click',function(ev){
   else if(a==='bots'){ if(S.bots) stopBots(); else startBots(); render(); }
 });
 document.addEventListener('change',function(ev){ if(ev.target.id==='dm-tog'){ S.dmOn=ev.target.checked; S.cfg.dm=S.dmOn; saveJSON(CFG_KEY,S.cfg); var b=document.querySelector('[data-act="dm"]'); if(b) b.textContent=S.dmOn?'彈幕 開':'彈幕 關'; if(!S.dmOn) document.getElementById('dm').innerHTML=''; } });
-document.addEventListener('keydown',function(ev){ if(ev.key==='Enter'&&ev.target.id==='chat-in'&&!ev.isComposing){ ev.preventDefault(); send(); } if(ev.key==='Enter'&&ev.target.id==='nick-in'&&!ev.isComposing){ ev.preventDefault(); var b=document.querySelector('[data-act="saveNick"]'); if(b) b.click(); } });
+document.addEventListener('keydown',function(ev){
+  if(ev.target.id==='chat-in'&&!ev.isComposing&&atOpen()){ if(ev.key==='Enter'||ev.key==='Tab'){ var f=document.querySelector('#atpop button'); if(f){ ev.preventDefault(); pickAt(f.dataset.name); return; } } if(ev.key==='Escape'){ hideAt(); return; } }
+  if(ev.key==='Enter'&&ev.target.id==='chat-in'&&!ev.isComposing){ ev.preventDefault(); send(); } if(ev.key==='Enter'&&ev.target.id==='nick-in'&&!ev.isComposing){ ev.preventDefault(); var b=document.querySelector('[data-act="saveNick"]'); if(b) b.click(); } });
 document.addEventListener('fullscreenchange',function(){ /* 退出全螢幕時保持版面 */ });
 document.addEventListener('visibilitychange',function(){ if(!document.hidden&&S.mode==='live') pollOnce(); });
 window.addEventListener('storage',function(e){ /* 備援：BroadcastChannel 不支援時，從 localStorage 補訊息 */

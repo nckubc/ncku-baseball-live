@@ -384,6 +384,14 @@ function applyCmd(m){
   renderAlert(); renderSide();
 }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el) return; if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
+/* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
+var BUILD='__BUILD__';
+function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
+  fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
+    var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
+  }).catch(function(){}); }
+document.addEventListener('visibilitychange',function(){ if(!document.hidden) checkUpdate(); });
+setTimeout(checkUpdate, 4000); setInterval(checkUpdate, 10*60*1000);
 /* 贊助：球隊轉帳帳戶（QR Code 之後放 sponsor-qr.png，再把 qr 設成檔名） */
 var SPONSOR={bank:'中華郵政', code:'700', acct:'0031071-0891691', qr:''};
 var BOOT_T0=Date.now();

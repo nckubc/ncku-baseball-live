@@ -24,5 +24,7 @@ if os.path.exists(fr):
         print('enriched fields:', n)
 s = open(src, encoding='utf-8').read()
 assert s.count('__DEMO_DATA__') == 1
+import time
+s = s.replace("var BUILD='__BUILD__'", "var BUILD='" + time.strftime('%Y%m%d%H%M%S') + "'")
 open(out, 'w', encoding='utf-8', newline='').write(s.replace('__DEMO_DATA__', demo))
 print('demo bytes', len(demo))

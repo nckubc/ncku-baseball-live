@@ -165,6 +165,20 @@ input,select{font:inherit;}
 .amts{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
 .amts button{height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);font-size:13px;font-weight:700;}
 .tierHint{font-size:12.5px;color:var(--acc-l);margin-top:6px;min-height:18px;}
+.lastp{cursor:pointer;}
+.pdhint{font-size:11.5px;color:var(--acc-l);margin-top:2px;}
+.pa[data-act]{cursor:pointer;}
+.pdrow{cursor:pointer;}
+.pdgrid{display:flex;gap:16px;justify-content:center;align-items:flex-start;margin:6px 0 10px;flex-wrap:wrap;}
+.pdzone{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.pdzone small{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.4;}
+.mz.big{display:grid;grid-template-columns:repeat(5,18px);grid-template-rows:repeat(5,18px);gap:2px;}
+.mz.big i{background:#26262b;border-radius:2px;}
+.mz.big i.in{background:#38383f;}
+.mz.big i.hit{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+.fld{width:112px;height:112px;}
+.pdkv{grid-template-columns:repeat(auto-fit,minmax(110px,1fr));}
+.pdkv .v{font-size:15px;line-height:1.35;}
 .spintro{font-size:12.5px;line-height:1.7;color:var(--muted);background:var(--panel2);border-radius:10px;padding:8px 12px;margin:2px 0 10px;}
 .spnote{text-align:center;font-weight:800;font-size:15px;line-height:1.6;color:var(--text);margin:2px 0 8px;}
 .spdone{font-size:12.5px;color:var(--muted);text-align:center;margin:4px 0 12px;}
@@ -878,6 +892,42 @@ function demobar(){
 /* ===== 剛剛這球：直接讀紀錄系統最新一球的球種、進壘點、結果 ===== */
 var RES_LBL={ball:['壞球','ball'],strike_look:['好球（看）','str'],strike_swing:['揮空','str'],foul:['界外','foul'],hbp:['觸身','ball']};
 function zoneText(z){ if(z==null||isNaN(z)) return ''; z=+z; var r=Math.floor(z/5), c=z%5; if(r>=1&&r<=3&&c>=1&&c<=3) return '好球帶'+['偏高','中間','偏低'][r-1]; return '好球帶外'+(r===0?'・偏高':(r===4?'・偏低':'')); }
+/* ===== 單球細節：進壘點、球種、擊球狀態、飛行狀態、落點、處理順序、最終結果 ===== */
+var POSN={'1':'投手','2':'捕手','3':'一壘手','4':'二壘手','5':'三壘手','6':'游擊手','7':'左外野','8':'中外野','9':'右外野',P:'投手',C:'捕手','1B':'一壘手','2B':'二壘手','3B':'三壘手',SS:'游擊手',LF:'左外野',CF:'中外野',RF:'右外野'};
+var FINAL_LBL={'1B':'一壘安打','2B':'二壘安打','3B':'三壘安打','HR':'全壘打','K':'三振','三振看':'三振（站著看）','三振揮':'三振（揮棒落空）','BB':'四壞球保送','HBP':'觸身球','SF':'高飛犧牲打','SH':'犧牲觸擊','ROE':'失誤上壘','FC':'野手選擇','GIDP':'雙殺打','DP':'雙殺','TP':'三殺'};
+function zoneGridHTML(z){ var c=''; for(var k=0;k<25;k++){ var rr=Math.floor(k/5), cc=k%5; c+='<i class="'+(rr>=1&&rr<=3&&cc>=1&&cc<=3?'in':'')+(z!=null&&+z===k?' hit':'')+'"></i>'; } return '<div class="mz big">'+c+'</div>'; }
+function fieldSVG(l){
+  var dot=(l&&l.x!=null&&l.y!=null)?'<circle cx="'+(+l.x)+'" cy="'+(+l.y)+'" r="3.2" fill="#e0767b" stroke="#fff" stroke-width="1"/>':'';
+  return '<svg class="fld" viewBox="0 0 100 100" aria-label="落點"><path d="M50 92 L4.7 46.7 A64 64 0 0 1 95.3 46.7 Z" fill="#20301f" stroke="#3b5a39" stroke-width="0.8"/>'+
+    '<path d="M50 92 L60.2 81.8 L50 71.6 L39.8 81.8 Z" fill="#5a4630" stroke="#d9d3c8" stroke-width="0.5"/>'+
+    '<circle cx="50" cy="81.8" r="1.6" fill="#8a7458"/>'+dot+'</svg>';
+}
+function pitchDetailHTML(ei){
+  var g=S.cur, e=g&&g.events[ei]; if(!e) return '<h3>找不到這一球</h3>';
+  var r=(S.model&&S.model.today||[]).find(function(x){ return x.ei===+ei; })||{};
+  var n=0; for(var j=+ei;j>=0;j--){ var q=g.events[j]; if(q.type!=='pitch'&&q.type!=='battedball') continue; if(q.batterName!==e.batterName||q.inningBefore!==e.inningBefore||q.halfBefore!==e.halfBefore) break; n++; }
+  var bat=e.batterName||'', pit=e.pitcherName||r.pit||'';
+  var h='<h3>'+(e.inningBefore||'')+' 局'+(e.halfBefore==='top'?'上':'下')+'・'+esc(bat)+'</h3><div class="sub">投手 '+esc(pit||'—')+'・這個打席第 '+n+' 球・'+(e.ballsBefore!=null?e.ballsBefore+' 壞 '+e.strikesBefore+' 好':'')+(e.outsBefore!=null?'・'+e.outsBefore+' 出局':'')+'</div>';
+  var kv=[];
+  kv.push(['球種', e.pitchType||'未記錄']);
+  var res;
+  if(e.type==='battedball') res='打進場內'; else { res=(RES_LBL[e.pitchResult]||[e.pitchResult||'—'])[0]; }
+  kv.push(['這球結果', res]);
+  if(e.type==='battedball'){
+    kv.push(['擊球狀態', e.power||'未記錄']);
+    kv.push(['飛行狀態', e.trajectory||'未記錄']);
+    var ch=(e.chain&&e.chain.length)?e.chain.map(function(c){ return (POSN[c.pos]||c.pos)+(c.error?'（失誤）':''); }).join(' → '):'';
+    if(!ch&&e.chainStr) ch=String(e.chainStr).split('-').map(function(x){ return POSN[x]||x; }).join(' → ');
+    kv.push(['處理順序', ch?(ch+(e.chainStr?'（'+e.chainStr+'）':'')):'未記錄']);
+  }
+  var fin=e.finalOutcome;
+  if(fin){ var ft=FINAL_LBL[fin]||(fin==='一般出局'?((e.trajectory||'')+'出局'):fin); if(e.rbi) ft+='・打點 '+e.rbi; kv.push(['最終結果', ft]); }
+  h+='<div class="pdgrid"><div class="pdzone">'+zoneGridHTML(e.zone)+'<small>進壘點（捕手視角）'+(e.zone!=null?'<br>'+esc(zoneText(e.zone)):'<br>未記錄')+'</small></div>'+
+    (e.type==='battedball'?'<div class="pdzone">'+fieldSVG(e.landing)+'<small>落點'+(e.landing?'':'<br>未記錄')+'</small></div>':'')+'</div>';
+  h+='<div class="kv pdkv">'+kv.map(function(x){ return '<div><div class="k">'+esc(x[0])+'</div><div class="v">'+esc(String(x[1]))+'</div></div>'; }).join('')+'</div>';
+  h+='<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
+  return h;
+}
 function lastPitchHTML(x){
   var ev=x.g.events, e=null, n=0;
   for(var i=ev.length-1;i>=0;i--){ if(ev[i].type==='pitch'||ev[i].type==='battedball'){ e=ev[i]; break; } }
@@ -889,9 +939,9 @@ function lastPitchHTML(x){
   else { res=RES_LBL[e.pitchResult]||[e.pitchResult||'','foul']; if(e.finalOutcome==='三振看'||e.finalOutcome==='三振揮') res=['三振','str']; if(e.finalOutcome==='BB') res=['四壞保送','ball']; }
   var cells=''; for(var k=0;k<25;k++){ var rr=Math.floor(k/5), cc=k%5; cells+='<i class="'+(rr>=1&&rr<=3&&cc>=1&&cc<=3?'in':'')+(e.zone!=null&&+e.zone===k?' hit':'')+'"></i>'; }
   var cnt=(e.ballsAfter!=null&&e.strikesAfter!=null&&e.type==='pitch'&&!e.finalOutcome)?'（'+e.ballsAfter+'-'+e.strikesAfter+'）':'';
-  return '<div class="sec">剛剛這球</div><div class="lastp"><div class="mzw" title="進壘點是從捕手位置往投手看"><div class="mz">'+cells+'</div><small>捕手視角</small></div><div class="lt">'+
+  return '<div class="sec">剛剛這球</div><div class="lastp" data-act="pdet" data-ei="'+ev.indexOf(e)+'"><div class="mzw" title="進壘點是從捕手位置往投手看"><div class="mz">'+cells+'</div><small>捕手視角</small></div><div class="lt">'+
     '<b>'+esc(e.pitchType||'球種未記')+'</b><span class="res '+res[1]+'">'+esc(res[0])+'</span>'+esc(cnt)+'<br>'+
-    '<span class="muted">'+esc(zoneText(e.zone))+(zoneText(e.zone)?' · ':'')+esc(e.pitcherName||'')+' 對 '+esc(e.batterName||'')+' 第 '+n+' 球</span></div></div>';
+    '<span class="muted">'+esc(zoneText(e.zone))+(zoneText(e.zone)?' · ':'')+esc(e.pitcherName||'')+' 對 '+esc(e.batterName||'')+' 第 '+n+' 球</span><div class="pdhint">點擊看細節 ›</div></div></div>';
 }
 function renderSide(){
   var el=document.getElementById('side'); if(!el) return;
@@ -907,7 +957,7 @@ function renderSide(){
       '<span class="ord">'+(i+1)+'</span><span class="num">'+(dispNum(p)?'#'+esc(dispNum(p)):'')+'</span>'+
       '<span class="mid">'+avatar(p.name)+'<span class="nm">'+esc(p.name)+'</span> <span class="pos">'+esc(POS_LABEL[p.pos]||p.pos||'')+'</span> '+
         (cur?'<span class="tag hot">打擊中</span>':(next?'<span class="tag">'+(x.weBat?'下一棒':'下局首棒')+'</span>':''))+
-        '<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span></span>'+
+        '<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'" data-act="pdet" data-ei="'+r.ei+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span></span>'+
       '<span><div class="line">'+tb.txt+'</div><div class="rk">'+rkTxt(p.name)+'</div></span></button>';
   });
   /* 投手：今天上過場的成大投手 */
@@ -939,7 +989,7 @@ function renderSide(){
     if(S.othersOpen) others.forEach(function(p){ var pl=!!played[p.name], tb=todayBat(p.name);
       h+='<button class="prow'+(pl?'':' dim')+'" data-act="player" data-name="'+esc(p.name)+'"><span class="ord"></span><span class="num">'+(dispNum(p)?'#'+esc(dispNum(p)):'')+'</span>'+
         '<span class="mid">'+avatar(p.name)+'<span class="nm">'+esc(p.name)+'</span> '+(LL.out[p.name]?'<span class="tag">已退場</span>':(pl?'<span class="tag ok">今日已上場</span>':'<span class="tag">未上場</span>'))+
-        (tb.pas.length?'<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span>':'')+'</span>'+
+        (tb.pas.length?'<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'" data-act="pdet" data-ei="'+r.ei+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span>':'')+'</span>'+
         '<span><div class="line">'+(tb.pas.length?tb.txt:'')+'</div><div class="rk">'+rkTxt(p.name)+'</div></span></button>'; });
   }
   /* 本場排行榜（只算成大） */
@@ -975,7 +1025,7 @@ function renderSheet(){
     } else {
       var st=(pinfo(sh.name)||{}).stats||null, meta=PLAYERS._stats||{};
       function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div'+(k==='全壘打'&&+o[k]>0?' class="hl"':'')+'><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }
-      if(tb.pas.length) h+='<div class="muted">今日打席</div><div class="palist">'+tb.pas.map(function(r,i){return '<div><span>第 '+(i+1)+' 打席（'+r.inn+'局）</span><b>'+esc(outLabel(r))+'</b></div>';}).join('')+'</div>';
+      if(tb.pas.length) h+='<div class="muted">今日打席</div><div class="palist">'+tb.pas.map(function(r,i){return '<div class="pdrow" data-act="pdet" data-ei="'+r.ei+'"><span>第 '+(i+1)+' 打席（'+r.inn+'局）</span><b>'+esc(outLabel(r))+'</b></div>';}).join('')+'</div>';
       if(tp.n) h+='<div class="muted" style="margin-top:8px">今日投球</div><div class="kv"><div><div class="k">用球數</div><div class="v">'+tp.n+'</div></div><div><div class="k">三振</div><div class="v">'+tp.k+'</div></div></div>';
       /* 打擊、投球都有的球員：看他今天登錄的守位，投手看投球，其他看打擊 */
       var asP=p.pos==='P'||(!!tp.n&&!tb.pas.length);
@@ -997,6 +1047,8 @@ function renderSheet(){
   } else if(sh.type==='nick'){
     h+='<h3>取個暱稱</h3><div class="sub">留言和刷火箭時會顯示這個名字</div><div class="fieldrow"><input id="nick-in" maxlength="12" placeholder="例如：成大校友"></div>'+
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveNick">確定</button></div>';
+  } else if(sh.type==='pdet'){
+    h+=pitchDetailHTML(sh.ei);
   } else if(sh.type==='bullpen'){
     var bk=Object.keys(S.bullpen||{});
     h+='<h3>牛棚狀況</h3><div class="sub">目前在牛棚熱身的投手</div>'+(bk.length?bk.map(function(n){ var b=S.bullpen[n], mins=Math.max(0,Math.round((Date.now()-(b.t||Date.now()))/60000));
@@ -1043,6 +1095,7 @@ document.addEventListener('click',function(ev){
   else if(a==='pback'){ S.sheet.view=null; renderSheet(); }
   else if(a==='rocket'){ var nm=t.dataset.name; S.sheet=null; renderSheet(); sendRocket(nm); }
   else if(a==='close'){ S.sheet=null; renderSheet(); }
+  else if(a==='pdet'){ S.sheet={type:'pdet', ei:+t.dataset.ei}; renderSheet(); }
   else if(a==='bullpen'){ S.sheet={type:'bullpen'}; renderSheet(); }
   else if(a==='toggleOthers'){ S.othersOpen=!S.othersOpen; renderSide(); }
   else if(a==='sponsor'){ S.sheet={type:'support'}; renderSheet(); }

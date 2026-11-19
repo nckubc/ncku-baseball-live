@@ -100,4 +100,14 @@ while used < N:
     k += 1
 
 json.dump(frames, open(out_path, 'w', encoding='utf-8'), ensure_ascii=False)
+# 補充欄位（落點、處理順序、擊球狀態…）：內嵌歷史資料沒有，從原始紀錄依事件 id 補上；build_live.py 會套用
+KEYS = ('power', 'trajectory', 'landing', 'chain', 'chainStr', 'rbi', 'pitchType', 'zone', 'pitcherName')
+enrich = {e['id']: {k: e[k] for k in KEYS if e.get(k) is not None} for e in raw['events'] if e['type'] in ('pitch', 'battedball')}
+for f in frames:
+    for e in f['events']:
+        for k, v in enrich.get(e['id'], {}).items():
+            e.setdefault(k, v)
+json.dump(frames, open(out_path, 'w', encoding='utf-8'), ensure_ascii=False)
+json.dump(enrich, open(out_path.replace('frames', 'enrich'), 'w', encoding='utf-8'), ensure_ascii=False)
+print('enrich', len(enrich))
 print('frames', len(frames), 'span', frames[-1]['t'], 's')

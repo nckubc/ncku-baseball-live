@@ -132,6 +132,15 @@ input,select{font:inherit;}
 @keyframes glow{0%{background:var(--acc-d);}100%{background:var(--panel2);}}
 .plus{position:absolute;right:10px;top:4px;color:var(--gold);font-weight:800;font-size:14px;animation:plus 1s ease-out forwards;pointer-events:none;}
 @keyframes plus{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(-16px);}}
+.lbs{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.lb{background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:13px;min-width:0;}
+.lbt{font-size:12px;font-weight:800;color:var(--muted);margin-bottom:4px;}
+.lb .r{display:flex;align-items:center;gap:4px;padding:2px 0;min-width:0;}
+.lb .r .av{width:20px;height:20px;margin-right:2px;}
+.lb .lbn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb [class^=rk]{width:14px;font-weight:800;color:var(--muted);font-size:12px;}
+.lb .rk1{color:var(--acc-l);}
+.lbe{font-size:12px;}
 .rkBoard{background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:13px;}
 .lastp{display:flex;gap:10px;align-items:center;background:var(--panel2);border-radius:10px;padding:8px 10px;margin-bottom:4px;}
 .lastp .mz{display:grid;grid-template-columns:repeat(5,9px);grid-template-rows:repeat(5,9px);gap:1px;flex:none;}
@@ -692,7 +701,7 @@ function shell(){
         (hasVid?'<button class="unmute" id="unmute" data-act="mute">開聲音</button>':'')+
         '<div class="vctl"><button data-act="dm">'+(S.dmOn?'彈幕 開':'彈幕 關')+'</button><button data-act="full">全螢幕</button></div>'+
       '</div>'+
-      '<div class="mtabs"><button data-act="tab" data-v="lineup">陣容</button><button data-act="tab" data-v="chat">聊天</button><button class="sponsorbtn" data-act="sponsor">贊助</button></div>'+
+      '<div class="mtabs"><button data-act="tab" data-v="lineup">陣容</button><button data-act="tab" data-v="chat">聊天</button><button class="sponsorbtn" data-act="sponsor">支持我們</button></div>'+
       '<div class="side"><div class="sideScroll" id="side"></div></div>'+
       '<div class="chat"><div class="msgs" id="msgs"></div>'+
         '<div class="atpop" id="atpop" hidden></div><div class="inbar"><input type="text" id="chat-in" maxlength="80" placeholder="'+esc(inPh())+'" enterkeyhint="send" autocomplete="off">'+
@@ -702,7 +711,7 @@ function shell(){
 }
 function scorebar(){
   var x=situation();
-  var gear='<span class="sp"></span><button class="sponsorbtn" data-act="sponsor">贊助球隊</button><button class="iconbtn demobtn'+(S.mode==='demo'?' on':'')+'" data-act="demoToggle" title="'+(S.mode==='demo'?'離開 DEMO':'看 DEMO 示範')+'">'+(S.mode==='demo'?'離開':'DEMO')+'</button><button class="iconbtn" data-act="settings" title="設定" aria-label="設定"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>';
+  var gear='<span class="sp"></span><button class="sponsorbtn" data-act="sponsor">支持我們</button><button class="iconbtn demobtn'+(S.mode==='demo'?' on':'')+'" data-act="demoToggle" title="'+(S.mode==='demo'?'離開 DEMO':'看 DEMO 示範')+'">'+(S.mode==='demo'?'離開':'DEMO')+'</button><button class="iconbtn" data-act="settings" title="設定" aria-label="設定"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>';
   if(!x){ return '<b data-act="secret">成大棒球 線上觀賽</b><span class="muted">'+(S.mode==='live'?(S.live.err?'連線問題：'+esc(S.live.err):'連線中…'):'尚未連到比賽')+'</span>'+gear; }
   var st=x.st, ours=x.names[x.ourSide], opp=x.names[x.ourSide==='home'?'away':'home'], oppSide=x.ourSide==='home'?'away':'home';
   var outs=''; for(var i=0;i<3;i++) outs+='<i'+(i<(st.outs||0)?' class="on"':'')+'></i>';
@@ -710,8 +719,7 @@ function scorebar(){
   var bl=x.batter?todayBat(x.batter.name):null, pt=x.pitcher?todayPit(x.pitcher.name):null;
   return '<span class="sbside'+(x.weBat?'':' def')+'">'+(x.weBat?'成大進攻':'成大守備')+'</span>'+
     '<span class="score" data-act="secret">'+esc(ours)+' '+x.score[x.ourSide]+' : '+x.score[oppSide]+' '+esc(opp)+'</span>'+
-    '<span class="pill">'+(st.inning||1)+(st.half==='top'?'上':'下')+'</span><span class="outs">'+outs+'</span>'+
-    '<span class="pill">'+(st.balls||0)+'B '+(st.strikes||0)+'S</span>'+dia+gear+
+    '<span class="pill">'+(st.inning||1)+(st.half==='top'?'上':'下')+'</span>'+gear+
     '<span class="who">打者 <b>'+(x.batter?(dispNum(x.batter)?'#'+esc(dispNum(x.batter))+' ':'')+esc(x.batter.name):'—')+'</b>'+(bl?' 今日 '+bl.txt:'')+
     '　投手 <b>'+(x.pitcher?esc(x.pitcher.name):'—')+'</b>'+(pt?' '+pt.n+' 球':'')+
     (S.mode==='live'?'　<span class="muted">'+(S.live.err?'連線問題：'+esc(S.live.err):'即時 '+(S.live.t?new Date(S.live.t).toLocaleTimeString():''))+'</span>':'')+'</span>';
@@ -786,12 +794,17 @@ function renderSide(){
         (tb.pas.length?'<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span>':'')+'</span>'+
         '<span><div class="line">'+(tb.pas.length?tb.txt:'')+'</div><div class="rk">'+rkTxt(p.name)+'</div></span></button>'; });
   }
-  /* 火箭榜 */
-  var cnt=rocketCounts(), topTo=Object.keys(cnt.to).sort(function(a,b){return cnt.to[b]-cnt.to[a];}).slice(0,3), topFrom=Object.keys(cnt.from).sort(function(a,b){return cnt.from[b]-cnt.from[a];}).slice(0,3);
-  h+='<div class="sec">🚀 本場火箭榜　<button class="tag" data-act="stats" style="border:0">賽後統計</button></div><div class="rkBoard">'+
-    (topTo.length?'<div class="muted">人氣球員</div>'+topTo.map(function(n,i){return '<div class="r"><span>'+(i+1)+'. '+esc(n)+'</span><b>🚀×'+cnt.to[n]+'</b></div>';}).join('')+
-      '<div class="muted" style="margin-top:6px">火箭王</div>'+topFrom.map(function(n,i){return '<div class="r"><span>'+(i+1)+'. '+esc(n)+'</span><b>'+cnt.from[n]+' 排</b></div>';}).join('')
-     :'<span class="muted">還沒有人刷火箭，點球員就能刷！</span>')+'</div><div style="height:12px"></div>';
+  /* 本場排行榜（只算成大） */
+  var cnt=rocketCounts(), TB={'1B':1,'2B':2,'3B':3,'HR':4}, st={h:{},tb:{},k:{},bb:{}};
+  function add(o,n,v){ if(n&&v) o[n]=(o[n]||0)+v; }
+  (S.model?S.model.today:[]).forEach(function(r){ if(!r.paEnd||!r.out) return;
+    if(r.ourBat){ add(st.h,r.bat,HITS.indexOf(r.out)>=0?1:0); add(st.tb,r.bat,TB[r.out]||0); add(st.bb,r.bat,(r.out==='BB'||r.out==='HBP')?1:0); }
+    if(r.ourPit) add(st.k,r.pit,r.out==='K'?1:0); });
+  function board(title, o, unit){ var ks=Object.keys(o).filter(function(n){return o[n]>0;}).sort(function(a,b){return o[b]-o[a];}).slice(0,3);
+    return '<div class="lb"><div class="lbt">'+title+'</div>'+(ks.length?ks.map(function(n,i){ return '<div class="r"><span class="rk'+(i+1)+'">'+(i+1)+'</span>'+avatar(n)+'<span class="lbn">'+esc(n)+'</span><b>'+o[n]+unit+'</b></div>'; }).join(''):'<div class="muted lbe">還沒有</div>')+'</div>'; }
+  h+='<div class="sec">本場排行榜　<button class="tag" data-act="stats" style="border:0">完整統計</button></div><div class="lbs">'+
+    board('人氣 🚀', cnt.to, '')+board('安打', st.h, ' 支')+board('壘打數', st.tb, '')+board('三振（投手）', st.k, ' K')+board('四死球', st.bb, '')+board('火箭王（觀眾）', cnt.from, ' 排')+
+    '</div><div style="height:12px"></div>';
   el.innerHTML=h;
 }
 /* 簡易賽季數據（雛形：由歷史比賽計算；正式版改讀「公開數據快照」） */
@@ -837,10 +850,10 @@ function renderSheet(){
     h+='<h3>取個暱稱</h3><div class="sub">留言和刷火箭時會顯示這個名字</div><div class="fieldrow"><input id="nick-in" maxlength="12" placeholder="例如：成大校友"></div>'+
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveNick">確定</button></div>';
   } else if(sh.type==='sponsor'){
-    h+='<h3>贊助成大乙棒</h3><div class="sub">謝謝你的支持！轉帳到球隊帳戶：</div>'+
+    h+='<h3>支持成大乙棒</h3><div class="sub">謝謝你的支持！用網路銀行或 ATM 轉帳到球隊帳戶：</div>'+
       '<div class="spkv"><div><span>銀行</span><b>'+esc(SPONSOR.bank)+'</b></div><div><span>銀行代號</span><b>'+esc(SPONSOR.code)+'</b></div>'+
       '<div><span>帳號</span><span><b>'+esc(SPONSOR.acct)+'</b><button data-act="copyAcct">複製</button></span></div></div>'+
-      '<div class="spqr">'+(SPONSOR.qr?'<img alt="轉帳 QR Code" src="'+esc(SPONSOR.qr)+'">':'QR Code 即將提供')+'</div>'+
+      (SPONSOR.qr?'<div class="spqr"><img alt="轉帳 QR Code" src="'+esc(SPONSOR.qr)+'"></div>':'<p class="muted" style="font-size:12.5px;line-height:1.6;margin:0 0 12px">按「複製」後打開你的銀行 App，選「轉帳」，銀行選中華郵政（700），貼上帳號即可。</p>')+
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
   } else if(sh.type==='stats'){
     var cnt=rocketCounts(), tos=Object.keys(cnt.to).sort(function(a,b){return cnt.to[b]-cnt.to[a];}), froms=Object.keys(cnt.from).sort(function(a,b){return cnt.from[b]-cnt.from[a];});

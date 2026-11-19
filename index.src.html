@@ -132,6 +132,25 @@ input,select{font:inherit;}
 @keyframes glow{0%{background:var(--acc-d);}100%{background:var(--panel2);}}
 .plus{position:absolute;right:10px;top:4px;color:var(--gold);font-weight:800;font-size:14px;animation:plus 1s ease-out forwards;pointer-events:none;}
 @keyframes plus{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(-16px);}}
+.thx{position:fixed;left:0;right:0;top:var(--safe-t);height:44px;z-index:55;background:var(--acc);color:#fff;overflow:hidden;pointer-events:none;box-shadow:0 2px 12px #0008;animation:thxIn .3s ease-out;}
+.thx span{position:absolute;top:50%;left:100%;transform:translateY(-50%);white-space:nowrap;font-weight:900;font-size:17px;letter-spacing:.5px;animation:thxRun 9s linear forwards;}
+.thx.big{background:#7d1218;}
+.thx.big span{font-size:19px;}
+@keyframes thxIn{from{transform:translateY(-100%);}to{transform:none;}}
+@keyframes thxRun{from{left:100%;transform:translate(0,-50%);}to{left:0;transform:translate(-100%,-50%);}}
+.msg.sp{color:var(--acc-l);font-weight:800;}
+.spf .fieldrow{margin-bottom:10px;}
+.seg{display:flex;gap:6px;margin-top:4px;}
+.seg button{flex:1;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);font-weight:700;}
+.seg button.on{background:var(--acc);border-color:var(--acc);color:#fff;}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;margin:4px 0 10px;}
+.chk input{width:18px;height:18px;accent-color:var(--acc);}
+.amts{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.amts button{height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);font-size:13px;font-weight:700;}
+.tierHint{font-size:12.5px;color:var(--acc-l);margin-top:6px;min-height:18px;}
+.spdone{font-size:12.5px;color:var(--muted);text-align:center;margin:4px 0 12px;}
+.bigbtns.three{grid-template-columns:1fr 1fr 1fr;}
+.bigbtns.three button{font-size:14px;}
 .lbs{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .lb{background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:13px;min-width:0;}
 .lbt{font-size:12px;font-weight:800;color:var(--muted);margin-bottom:4px;}
@@ -261,6 +280,42 @@ var SPONSOR={bank:'中華郵政', code:'700', acct:'0031071-0891691', qr:''};
 var BOOT_T0=Date.now();
 function hideBoot(){ var b=document.getElementById('boot'); if(!b||b.dataset.h) return; b.dataset.h='1'; setTimeout(function(){ b.classList.add('hide'); setTimeout(function(){ b.remove(); },500); }, Math.max(0,1200-(Date.now()-BOOT_T0))); }
 setTimeout(hideBoot, 8000);
+/* ===== 支持我們：填資料 → 顯示轉帳帳號（後台記錄 /support）→ 全場感謝跑馬燈 ===== */
+var TIER_TXT={1:'支持',2:'大大支持',3:'超級超級支持'};
+function spTier(a){ a=+a||0; return a>=5000?3:(a>=500?2:1); }
+function thankText(m){
+  var title=m.alum?(m.g==='m'?'學長':(m.g==='f'?'學姊':'學長姐')):'';
+  return '非常感謝 '+(m.dept?m.dept+' ':'')+m.from+title+' '+(TIER_TXT[m.tier]||'支持')+(m.to?' '+m.to:'我們')+'！';
+}
+var THX_Q=[], THX_ON=false;
+function showThanks(text, big){ THX_Q.push({t:text,big:big}); if(!THX_ON) nextThanks(); }
+function nextThanks(){ var it=THX_Q.shift(); if(!it){ THX_ON=false; return; } THX_ON=true;
+  var d=document.createElement('div'); d.className='thx'+(it.big?' big':''); d.innerHTML='<span>'+esc(it.t)+'</span>'; document.body.appendChild(d);
+  setTimeout(function(){ d.remove(); nextThanks(); }, 9200); }
+/* 收到支持：10 秒後開始，每 10 秒一輪；一般跑 3 次，5000 以上跑 10 次 */
+function scheduleThanks(m){ var n=m.tier===3?10:3, text=thankText(m); for(var i=1;i<=n;i++) setTimeout(function(){ showThanks(text, m.tier===3); }, i*10000); }
+function spForm(){ var c=S.cfg, sh=S.sheet, g=sh.g||c.spG||'x';
+  return '<h3>支持成大乙棒</h3><div class="sub">'+(sh.to?'支持對象：'+esc(sh.to)+'。':'')+'留下名字，我們會在直播上謝謝你！</div><div class="spf">'+
+    '<div class="fieldrow">名字或暱稱<input id="sp-name" maxlength="12" value="'+esc(sh.name!=null?sh.name:(c.spName||c.nick||''))+'" placeholder="會顯示在感謝跑馬燈上"></div>'+
+    '<div class="fieldrow">稱呼<div class="seg">'+[['m','男'],['f','女'],['x','不方便']].map(function(o){ return '<button data-act="spG" data-v="'+o[0]+'" class="'+(g===o[0]?'on':'')+'">'+o[1]+'</button>'; }).join('')+'</div></div>'+
+    '<div class="fieldrow">系級（選填）<input id="sp-dept" maxlength="12" value="'+esc(sh.dept!=null?sh.dept:(c.spDept||''))+'" placeholder="例：機械 大三、化工 109 級"></div>'+
+    '<label class="chk"><input type="checkbox" id="sp-alum"'+((sh.alum!=null?sh.alum:c.spAlum)?' checked':'')+'>我是乙棒的學長／姊（選填）</label>'+
+    '<div class="fieldrow">支持金額（新台幣）<input id="sp-amt" type="number" inputmode="numeric" min="1" step="1" value="'+esc(sh.amt||'')+'" placeholder="輸入金額">'+
+      '<div class="amts">'+[100,300,500,1000,5000].map(function(a){ return '<button data-act="spAmt" data-v="'+a+'">'+a+'</button>'; }).join('')+'</div><div class="tierHint" id="sp-tier"></div></div>'+
+    '</div><div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="spNext">下一步：轉帳帳號</button></div>';
+}
+function spTierHint(){ var el=document.getElementById('sp-tier'), a=document.getElementById('sp-amt'); if(!el||!a) return; var v=+a.value||0; el.textContent=v>0?('直播上會顯示：'+TIER_TXT[spTier(v)]+(spTier(v)===3?'（感謝跑 10 次）':'')):''; }
+function spCollect(){ var sh=S.sheet; ['name','dept','amt'].forEach(function(k){ var el=document.getElementById('sp-'+k); if(el) sh[k]=el.value.trim(); }); var al=document.getElementById('sp-alum'); if(al) sh.alum=al.checked; }
+function spNext(){
+  spCollect(); var sh=S.sheet, name=(sh.name||'').slice(0,12), amt=Math.round(+sh.amt||0), g=sh.g||S.cfg.spG||'x', dept=(sh.dept||'').slice(0,12);
+  if(!name){ toast('請填名字或暱稱'); return; } if(!(amt>=1&&amt<=1000000)){ toast('請填支持金額'); return; }
+  S.cfg.spName=name; S.cfg.spG=g; S.cfg.spDept=dept; S.cfg.spAlum=!!sh.alum; saveJSON(CFG_KEY,S.cfg);
+  var tier=spTier(amt), rec={name:name, g:g, amount:amt, alum:!!sh.alum, t:{'.sv':'timestamp'}}; if(dept) rec.dept=dept; if(sh.to) rec.to=sh.to; if(roomKey()) rec.room=roomKey();
+  if(fbOn()) fetch(fbBase()+'/support.json',{method:'POST',body:JSON.stringify(rec)}).catch(function(){});
+  var m={id:uidm(), kind:'support', from:name, g:g, alum:!!sh.alum, tier:tier, t:Date.now()}; if(dept) m.dept=dept; if(sh.to) m.to=sh.to;
+  publish(m);
+  S.sheet={type:'sponsor', done:true}; renderSheet();
+}
 /* 球員介紹（players.json：背號、系級、一句話介紹） */
 var PLAYERS={}, PLAYER_ALIAS={'羅博強':'羅博强','王祥宇':'王祥予','張晉節':'張晉緁','李友佳':'李有佳','蔡文偉':'蔡文瑋','謝安倫':'謝安綸','葉承銨':'葉宸銨','許朝威':'許昭威','謝竺亭':'謝竺庭'};
 function pinfo(n){ n=String(n||'').trim(); return PLAYERS[n]||PLAYERS[PLAYER_ALIAS[n]]||null; }
@@ -535,7 +590,7 @@ function logKey(){ return 'live_log_'+(S.cur?S.cur.id:'none'); }
 function uidm(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function publish(m){
   receive(m,true);
-  if(fbOn()&&roomKey()){ var body={id:m.id, kind:m.kind, from:m.from, t:m.t}; if(m.text!=null) body.text=m.text; if(m.to!=null) body.to=m.to;
+  if(fbOn()&&roomKey()){ var body={id:m.id, kind:m.kind, from:m.from, t:m.t}; ['text','to','g','dept','alum','tier'].forEach(function(k){ if(m[k]!=null) body[k]=m[k]; });
     fetch(fbBase()+'/live/'+roomKey()+'/log.json',{method:'POST',body:JSON.stringify(body)}).then(function(r){ if(!r.ok) toast('送出失敗，請稍後再試'); }).catch(function(){ toast('網路不穩，送出失敗'); });
     return; }
   if(bc) bc.postMessage({gid:S.cur?S.cur.id:'', m:m});
@@ -543,11 +598,12 @@ function publish(m){
 if(bc) bc.onmessage=function(ev){ var d=ev.data||{}; if(!S.cur||d.gid!==S.cur.id) return; receive(d.m,false); };
 function receive(m, mine, quiet){
   if(!m||!m.id||S.seen[m.id]) return; S.seen[m.id]=1;
-  if(m.kind==='chat'&&typeof m.text!=='string') return; if(m.kind==='rocket'&&typeof m.to!=='string') return;
+  if(m.kind==='chat'&&typeof m.text!=='string') return; if(m.kind==='rocket'&&typeof m.to!=='string') return; if(m.kind==='support'&&!(m.tier>=1&&m.tier<=3)) return;
   S.log.push(m); if(S.log.length>300) S.log=S.log.slice(-300);
   if(!fbOn() && m.kind!=='sys' && m.kind!=='bot') saveJSON(logKey(), S.log.filter(function(x){return (x.kind==='chat'||x.kind==='rocket')&&!x.bot;}));   /* 沒有雲端時才存本機；DEMO 模擬觀眾的訊息不存 */
   appendMsg(m, mine);
   if(quiet){ if(m.kind==='rocket') renderSide(); return; }   /* 剛進房間載入的舊訊息：只列出，不播特效 */
+  if(m.kind==='support'){ scheduleThanks(m); return; }
   if(m.kind==='rocket'){ renderSide(); rocketFx(m.to, m.from); fly(m.from+' 🚀 '+m.to, 'rk'); }   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
   else if(m.kind==='chat'||m.kind==='bot'){ var tm=mentionsMe(m); fly(m.text, mine?'me':(tm?'tagme':'')); if(tm){ toast(m.from+' 提到你'); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(e){} } }
 }
@@ -572,7 +628,7 @@ function pickAt(name){ var inp=document.getElementById('chat-in'); if(!inp) retu
   if(a){ inp.value=v.slice(0,a.start)+'@'+name+' '+v.slice(a.end); var c=a.start+name.length+2; try{ inp.setSelectionRange(c,c); }catch(e){} } else { insertAt(name); return; }
   hideAt(); inp.focus(); }
 function insertAt(name){ if(!name||name===myName()) return; var inp=document.getElementById('chat-in'); if(!inp) return; var v=inp.value; inp.value=(v&&!/\s$/.test(v)?v+' ':v)+'@'+name+' '; inp.focus(); var c=inp.value.length; try{ inp.setSelectionRange(c,c); }catch(e){} hideAt(); }
-document.addEventListener('input',function(ev){ if(ev.target.id==='chat-in') updateAt(); });
+document.addEventListener('input',function(ev){ if(ev.target.id==='chat-in') updateAt(); if(ev.target.id==='sp-amt') spTierHint(); });
 document.addEventListener('click',function(ev){ if(!ev.target.closest('#atpop')&&ev.target.id!=='chat-in') hideAt(); },true);
 function sysMsg(text, toDm){ var m={id:'s'+uidm(), kind:'sys', text:text, t:Date.now()}; receive(m,false); if(toDm) fly(text,'sys'); }
 function send(){
@@ -585,6 +641,7 @@ function sendRocket(to){
 function msgHTML(m, mine){
   if(m.kind==='sys') return '<div class="msg sys">'+esc(m.text)+'</div>';
   if(m.kind==='rocket') return '<div class="msg rk">🚀 '+esc(m.from)+' 給 '+esc(m.to)+' 刷了一排火箭！</div>';
+  if(m.kind==='support') return '<div class="msg sp">'+esc(thankText(m))+'</div>';
   return '<div class="msg'+(m.from===myName()?' me':'')+(mentionsMe(m)?' tagme':'')+(m.kind==='bot'?' bot':'')+'"><span class="n" data-act="mention" data-name="'+esc(m.from)+'" title="點名字可以 @ 他">'+esc(m.from)+'</span>'+richText(m.text)+'</div>';
 }
 function appendMsg(m, mine){
@@ -823,7 +880,7 @@ function renderSheet(){
     var pi=pinfo(sh.name); if(pi&&pi.hr) h=h.replace('</h3>','<span class="hrchip">本季 '+pi.hr+' 轟</span></h3>');
     if(pi&&(pi.dept||pi.school||pi.intro)) h+='<div class="pintro">'+((pi.dept||pi.school)?'<div class="dept">'+esc([pi.dept,pi.school].filter(Boolean).join(' · '))+'</div>':'')+(pi.intro?'<div class="intro">'+esc(pi.intro)+'</div>':'')+'</div>';
     if(!sh.view){
-      h+='<div class="bigbtns"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
+      h+='<div class="bigbtns three"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button><button data-act="supportP" data-name="'+esc(sh.name)+'">支持乙棒</button></div>';
     } else {
       var st=(pinfo(sh.name)||{}).stats||null, meta=PLAYERS._stats||{};
       function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div'+(k==='全壘打'&&+o[k]>0?' class="hl"':'')+'><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }
@@ -849,11 +906,14 @@ function renderSheet(){
   } else if(sh.type==='nick'){
     h+='<h3>取個暱稱</h3><div class="sub">留言和刷火箭時會顯示這個名字</div><div class="fieldrow"><input id="nick-in" maxlength="12" placeholder="例如：成大校友"></div>'+
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveNick">確定</button></div>';
+  } else if(sh.type==='support'){
+    h+=spForm();
   } else if(sh.type==='sponsor'){
     h+='<h3>支持成大乙棒</h3><div class="sub">謝謝你的支持！用網路銀行或 ATM 轉帳到球隊帳戶：</div>'+
       '<div class="spkv"><div><span>銀行</span><b>'+esc(SPONSOR.bank)+'</b></div><div><span>銀行代號</span><b>'+esc(SPONSOR.code)+'</b></div>'+
       '<div><span>帳號</span><span><b>'+esc(SPONSOR.acct)+'</b><button data-act="copyAcct">複製</button></span></div></div>'+
       (SPONSOR.qr?'<div class="spqr"><img alt="轉帳 QR Code" src="'+esc(SPONSOR.qr)+'"></div>':'<p class="muted" style="font-size:12.5px;line-height:1.6;margin:0 0 12px">按「複製」後打開你的銀行 App，選「轉帳」，銀行選中華郵政（700），貼上帳號即可。</p>')+
+      (sh.done?'<div class="spdone">後台已記錄您的支持～非常感謝您</div>':'')+
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
   } else if(sh.type==='stats'){
     var cnt=rocketCounts(), tos=Object.keys(cnt.to).sort(function(a,b){return cnt.to[b]-cnt.to[a];}), froms=Object.keys(cnt.from).sort(function(a,b){return cnt.from[b]-cnt.from[a];});
@@ -886,7 +946,11 @@ document.addEventListener('click',function(ev){
   else if(a==='pback'){ S.sheet.view=null; renderSheet(); }
   else if(a==='rocket'){ var nm=t.dataset.name; S.sheet=null; renderSheet(); sendRocket(nm); }
   else if(a==='close'){ S.sheet=null; renderSheet(); }
-  else if(a==='sponsor'){ S.sheet={type:'sponsor'}; renderSheet(); }
+  else if(a==='sponsor'){ S.sheet={type:'support'}; renderSheet(); }
+  else if(a==='supportP'){ S.sheet={type:'support', to:t.dataset.name}; renderSheet(); }
+  else if(a==='spG'){ spCollect(); S.sheet.g=t.dataset.v; renderSheet(); spTierHint(); }
+  else if(a==='spAmt'){ var ai=document.getElementById('sp-amt'); if(ai){ ai.value=t.dataset.v; spTierHint(); } }
+  else if(a==='spNext'){ spNext(); }
   else if(a==='copyAcct'){ var acct=SPONSOR.acct.replace(/\D/g,''); (navigator.clipboard?navigator.clipboard.writeText(acct):Promise.reject()).then(function(){ toast('已複製帳號 '+acct); },function(){ toast('帳號：'+acct); }); }
   else if(a==='settings'){ S.sheet={type:'settings'}; renderSheet(); }
   else if(a==='stats'){ S.sheet={type:'stats'}; renderSheet(); }

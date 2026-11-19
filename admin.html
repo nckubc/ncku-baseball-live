@@ -81,6 +81,14 @@ code{background:#0b0b0d;padding:1px 5px;border-radius:4px;}
   <div class="msg" id="demoMsg"></div>
 </div>
 
+<div class="card">
+  <h2>支持紀錄</h2>
+  <div class="mut">觀眾在「支持我們」填寫的資料。注意：這是觀眾自己填的金額，請以實際入帳為準。</div>
+  <div id="spSum" class="mut" style="margin:8px 0">載入中…</div>
+  <div style="overflow-x:auto"><table id="spTbl" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>
+  <div class="row" style="margin-top:10px"><button class="sm" id="spCsv">下載 CSV</button></div>
+</div>
+
 <div class="card mut">
   觀眾網址：<a href="./" target="_blank" rel="noopener">線上觀賽頁</a>
   ・<a href="./?demo=1" target="_blank" rel="noopener">DEMO</a><br>
@@ -92,7 +100,7 @@ code{background:#0b0b0d;padding:1px 5px;border-radius:4px;}
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
-import { getDatabase, ref, onValue, update, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+import { getDatabase, ref, onValue, off, update, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 
 /* Firebase 網頁設定（公開資訊；真正的權限由資料庫規則控管：只有 nckubc@gmail.com 能寫 /config） */
 const app = initializeApp({
@@ -150,7 +158,27 @@ onAuthStateChanged(auth, u=>{
   $('authInfo').innerHTML = !u ? '請用球隊帳號 <b>'+ADMIN+'</b> 登入。' : '已登入：<b>'+u.email+'</b>';
   if(u && !isAdmin) msg($('authMsg'), '這個帳號沒有管理權限，請登出後改用 '+ADMIN+'。', false); else if(u) $('authMsg').textContent='';
   $('editor').classList.toggle('hide', !isAdmin);
+  if(isAdmin) watchSupport();
 });
+
+/* 支持紀錄（只有球隊帳號讀得到） */
+let spRows=[], spOn=false;
+const G={m:'男',f:'女',x:'不方便'};
+function watchSupport(){ if(spOn) return; spOn=true;
+  onValue(ref(db,'support'), s=>{
+    const v=s.val()||{}; spRows=Object.entries(v).map(([id,r])=>Object.assign({id},r)).sort((a,b)=>(b.t||0)-(a.t||0));
+    const total=spRows.reduce((a,r)=>a+(+r.amount||0),0);
+    $('spSum').textContent='共 '+spRows.length+' 筆，填寫金額合計 '+total.toLocaleString('zh-TW')+' 元';
+    const th='<tr>'+['時間','名字','稱呼','系級','乙棒學長姐','金額','支持對象'].map(x=>'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap">'+x+'</th>').join('')+'</tr>';
+    const td=x=>'<td style="padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap">'+String(x==null?'':x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</td>';
+    $('spTbl').innerHTML=th+spRows.map(r=>'<tr>'+td(r.t?new Date(r.t).toLocaleString('zh-TW'):'')+td(r.name)+td(G[r.g]||'')+td(r.dept||'')+td(r.alum?'是':'')+td((+r.amount||0).toLocaleString('zh-TW'))+td(r.to||'乙棒')+'</tr>').join('');
+  }, e=>{ $('spSum').textContent='讀取失敗：'+(e.code||e.message); });
+}
+$('spCsv').onclick=()=>{
+  const q=x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"';
+  const lines=[['時間','名字','稱呼','系級','乙棒學長姐','金額','支持對象'].map(q).join(',')].concat(spRows.map(r=>[r.t?new Date(r.t).toLocaleString('zh-TW'):'',r.name,G[r.g]||'',r.dept||'',r.alum?'是':'',r.amount,r.to||'乙棒'].map(q).join(',')));
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF)+lines.join(String.fromCharCode(13,10))],{type:'text/csv'})); a.download='支持紀錄.csv'; a.click();
+};
 
 /* 讀目前設定（任何人可讀） */
 onValue(cfgRef, s=>{

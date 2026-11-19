@@ -332,13 +332,13 @@ function birdTick(){
 setInterval(birdTick, 150);
 setInterval(function(){ var b=document.getElementById('bootbird'); if(b) b.src=b.src===BIRD.run_1?BIRD.run_2:BIRD.run_1; }, 150);
 function birdReact(kind){ if(kind==='rocket') birdDo('startled',1200); else if(kind==='chat') birdDo('wave',1400); }
-/* ===== 球隊指令：只有「成大一般組棒球隊2015」能下（資料庫規則要求球隊 Google 帳號登入）=====
+/* ===== 球隊指令：只有「成大乙棒2015」能下（資料庫規則要求球隊 Google 帳號登入）=====
    牛棚狀態：#18 顏辰峻，熱身中；#8 黃子承，熱身中   → 牛棚清單
    牛棚狀態：#18 顏辰峻，解除熱身                      → 從清單移除
    臨時狀況：XXXX                                       → 播放區固定彈幕
    臨時狀況解除（或 臨時狀況：解除）                    → 取消固定彈幕
    指令訊息不會出現在聊天室和彈幕。 */
-var TEAM_NAME='成大一般組棒球隊2015';
+var TEAM_NAME='成大乙棒2015';
 var FB_WEB={apiKey:'AIzaSyC_lYqluBESyAk74mCThCl6pmmEZYSeXWY', authDomain:'ncku-baseball-live.firebaseapp.com', databaseURL:'https://ncku-baseball-live-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'ncku-baseball-live', appId:'1:389060943324:web:c7dc454c344bee56974319'};
 var FBV='10.14.1';
 function teamToken(interactive){

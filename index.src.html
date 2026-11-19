@@ -332,29 +332,13 @@ function birdTick(){
 setInterval(birdTick, 150);
 setInterval(function(){ var b=document.getElementById('bootbird'); if(b) b.src=b.src===BIRD.run_1?BIRD.run_2:BIRD.run_1; }, 150);
 function birdReact(kind){ if(kind==='rocket') birdDo('startled',1200); else if(kind==='chat') birdDo('wave',1400); }
-/* ===== 球隊指令：只有「成大乙棒2015」能下（資料庫規則要求球隊 Google 帳號登入）=====
+/* ===== 球隊指令：暱稱是「成大乙棒2015」的訊息就當成指令 =====
    牛棚狀態：#18 顏辰峻，熱身中；#8 黃子承，熱身中   → 牛棚清單
    牛棚狀態：#18 顏辰峻，解除熱身                      → 從清單移除
    臨時狀況：XXXX                                       → 播放區固定彈幕
    臨時狀況解除（或 臨時狀況：解除）                    → 取消固定彈幕
    指令訊息不會出現在聊天室和彈幕。 */
 var TEAM_NAME='成大乙棒2015';
-var FB_WEB={apiKey:'AIzaSyC_lYqluBESyAk74mCThCl6pmmEZYSeXWY', authDomain:'ncku-baseball-live.firebaseapp.com', databaseURL:'https://ncku-baseball-live-default-rtdb.asia-southeast1.firebasedatabase.app', projectId:'ncku-baseball-live', appId:'1:389060943324:web:c7dc454c344bee56974319'};
-var FBV='10.14.1';
-function teamToken(interactive){
-  return import('https://www.gstatic.com/firebasejs/'+FBV+'/firebase-app.js').then(function(A){
-    return import('https://www.gstatic.com/firebasejs/'+FBV+'/firebase-auth.js').then(function(U){
-      var app=A.getApps().length?A.getApp():A.initializeApp(FB_WEB), auth=U.getAuth(app);
-      return (auth.authStateReady?auth.authStateReady():Promise.resolve()).then(function(){
-        if(auth.currentUser&&auth.currentUser.email==='nckubc@gmail.com') return auth.currentUser.getIdToken();
-        if(!interactive) throw new Error('login');
-        var pv=new U.GoogleAuthProvider(); pv.setCustomParameters({prompt:'select_account', login_hint:'nckubc@gmail.com'});
-        return U.signInWithPopup(auth,pv).then(function(r){ if(r.user.email!=='nckubc@gmail.com') throw new Error('notteam'); return r.user.getIdToken(); });
-      });
-    });
-  });
-}
-function teamLogin(){ toast('球隊帳號登入中…'); teamToken(true).then(function(){ toast('已用球隊帳號登入，可以在聊天室下指令'); }).catch(function(e){ toast(e&&e.message==='notteam'?'要用 nckubc@gmail.com 登入':'球隊帳號登入失敗'); }); }
 function isCmd(m){ return m&&m.kind==='chat'&&m.from===TEAM_NAME&&/^\s*(牛棚狀態|臨時狀況)/.test(m.text||''); }
 function applyCmd(m){
   if(!S.bullpen) S.bullpen={};
@@ -692,10 +676,7 @@ function uidm(){ return Date.now().toString(36)+Math.random().toString(36).slice
 function publish(m){
   receive(m,true);
   if(fbOn()&&roomKey()){ var body={id:m.id, kind:m.kind, from:m.from, t:m.t}; ['text','to','g','dept','alum','tier'].forEach(function(k){ if(m[k]!=null) body[k]=m[k]; });
-    var url=fbBase()+'/live/'+roomKey()+'/log.json';
-    (m.from===TEAM_NAME?teamToken(false).then(function(tok){ return url+'?auth='+encodeURIComponent(tok); }):Promise.resolve(url)).then(function(u){
-      return fetch(u,{method:'POST',body:JSON.stringify(body)}).then(function(r){ if(!r.ok) toast(m.from===TEAM_NAME?'指令送出失敗：請確認已用球隊帳號登入':'送出失敗，請稍後再試'); });
-    }).catch(function(){ toast(m.from===TEAM_NAME?'要先用球隊帳號登入（設定裡把暱稱改成 '+TEAM_NAME+'）':'網路不穩，送出失敗'); });
+    fetch(fbBase()+'/live/'+roomKey()+'/log.json',{method:'POST',body:JSON.stringify(body)}).then(function(r){ if(!r.ok) toast('送出失敗，請稍後再試'); }).catch(function(){ toast('網路不穩，送出失敗'); });
     return; }
   if(bc) bc.postMessage({gid:S.cur?S.cur.id:'', m:m});
 }
@@ -1074,9 +1055,9 @@ document.addEventListener('click',function(ev){
   else if(a==='copyAcct'){ var acct=SPONSOR.acct.replace(/\D/g,''); (navigator.clipboard?navigator.clipboard.writeText(acct):Promise.reject()).then(function(){ toast('已複製帳號 '+acct); },function(){ toast('帳號：'+acct); }); }
   else if(a==='settings'){ S.sheet={type:'settings'}; renderSheet(); }
   else if(a==='stats'){ S.sheet={type:'stats'}; renderSheet(); }
-  else if(a==='saveNick'){ var v=(document.getElementById('nick-in').value||'').trim().slice(0,12); if(!v) return; S.cfg.nick=v; saveJSON(CFG_KEY,S.cfg); if(v===TEAM_NAME) teamLogin(); S.sheet=null; renderSheet(); var ci=document.getElementById('chat-in'); if(ci) ci.placeholder='以「'+v+'」留言…'; var cb=nickCb; nickCb=null; if(cb) cb(); }
+  else if(a==='saveNick'){ var v=(document.getElementById('nick-in').value||'').trim().slice(0,12); if(!v) return; S.cfg.nick=v; saveJSON(CFG_KEY,S.cfg); S.sheet=null; renderSheet(); var ci=document.getElementById('chat-in'); if(ci) ci.placeholder='以「'+v+'」留言…'; var cb=nickCb; nickCb=null; if(cb) cb(); }
   else if(a==='saveCfg'){
-    var oldYt=curYt(), oldSrc=wantSrc(); S.cfg.ytTest=document.getElementById('cf-yt').value.trim(); var nk=document.getElementById('cf-nick').value.trim().slice(0,12); S.cfg.nick=nk; if(nk===TEAM_NAME) teamLogin(); var ci0=document.getElementById('chat-in'); if(ci0) ci0.placeholder=inPh();
+    var oldYt=curYt(), oldSrc=wantSrc(); S.cfg.ytTest=document.getElementById('cf-yt').value.trim(); var nk=document.getElementById('cf-nick').value.trim().slice(0,12); S.cfg.nick=nk; var ci0=document.getElementById('chat-in'); if(ci0) ci0.placeholder=inPh();
     S.cfg.api=document.getElementById('cf-api').value.trim()||S.site.api||DEFAULT_API; saveJSON(CFG_KEY,S.cfg); S.sheet=null;
     if(oldYt!==curYt()){ var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; }
     if(S.mode!=='demo') startLive();

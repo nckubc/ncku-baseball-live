@@ -82,6 +82,25 @@ code{background:#0b0b0d;padding:1px 5px;border-radius:4px;}
 </div>
 
 <div class="card">
+  <h2>比賽重播</h2>
+  <div class="mut">選一場比賽、貼上那場的 YouTube 影片，再填「影片中第一球的時間」對齊。儲存後，觀眾在觀賽頁按「觀看比賽重播」就能看到：影片配合當時的比分、紀錄、聊天、彈幕、火箭一起重現。</div>
+  <label for="rpGame">比賽</label>
+  <select id="rpGame" style="width:100%;height:42px;border-radius:8px;border:1px solid var(--line);background:#0b0b0d;color:var(--fg);padding:0 8px;font-size:15px"><option>載入中…</option></select>
+  <label for="rpTitle">標題（觀眾看到的名稱）</label><input id="rpTitle" maxlength="40">
+  <label for="rpYt">這場比賽的 YouTube 影片網址</label><input id="rpYt" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+  <label for="rpAnchor">用哪一球對齊（選一個影片裡看得到的半局第一球）</label>
+  <select id="rpAnchor" style="width:100%;height:42px;border-radius:8px;border:1px solid var(--line);background:#0b0b0d;color:var(--fg);padding:0 8px;font-size:15px"></select>
+  <div class="mut" id="rpFirst" style="margin-top:6px"></div>
+  <div class="row">
+    <div><label for="rpSec">這一球在影片中的時間</label><input id="rpSec" placeholder="例：12:34 或 1:14:48"></div>
+    <div><label for="rpAdj">微調秒數（紀錄太早出現填正數）</label><input id="rpAdj" inputmode="numeric" value="0"></div>
+  </div>
+  <div class="prev" id="rpPrev"><div class="ph">填好影片和時間後預覽第一球</div></div>
+  <div class="row" style="margin-top:10px"><button class="pri" id="rpSave">儲存重播設定</button><button class="sm" id="rpDel">刪除這場重播</button></div>
+  <div class="msg" id="rpMsg"></div>
+</div>
+
+<div class="card">
   <h2>支持紀錄</h2>
   <div class="mut">觀眾在「支持我們」填寫的資料。注意：這是觀眾自己填的金額，請以實際入帳為準。</div>
   <div id="spSum" class="mut" style="margin:8px 0">載入中…</div>
@@ -100,7 +119,7 @@ code{background:#0b0b0d;padding:1px 5px;border-radius:4px;}
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
-import { getDatabase, ref, onValue, off, update, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+import { getDatabase, ref, onValue, off, update, set, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 
 /* Firebase 網頁設定（公開資訊；真正的權限由資料庫規則控管：只有 nckubc@gmail.com 能寫 /config） */
 const app = initializeApp({
@@ -158,8 +177,48 @@ onAuthStateChanged(auth, u=>{
   $('authInfo').innerHTML = !u ? '請用球隊帳號 <b>'+ADMIN+'</b> 登入。' : '已登入：<b>'+u.email+'</b>';
   if(u && !isAdmin) msg($('authMsg'), '這個帳號沒有管理權限，請登出後改用 '+ADMIN+'。', false); else if(u) $('authMsg').textContent='';
   $('editor').classList.toggle('hide', !isAdmin);
-  if(isAdmin) watchSupport();
+  if(isAdmin){ watchSupport(); if(!rpGames.length) rpLoad(); }
 });
+
+/* 比賽重播設定：/replays/<gameId> = {title, date, yt, t0, adj, firstTs} */
+let rpGames=[], rpMap={};
+function rpGame(){ return rpGames.find(g=>g.id===$('rpGame').value); }
+function rpFirstPitch(g){ return (g&&g.events||[]).find(e=>(e.type==='pitch'||e.type==='battedball')&&e.ts); }
+function rpAnchors(g){ const out=[]; let key=''; (g&&g.events||[]).forEach(e=>{ if((e.type!=='pitch'&&e.type!=='battedball')||!e.ts) return; const k=e.inningBefore+e.halfBefore; if(k!==key){ key=k; out.push(e); } }); return out; }
+function rpAnchor(){ const g=rpGame(); return rpAnchors(g).find(e=>e.id===$('rpAnchor').value)||rpFirstPitch(g); }
+function rpFill(){ const g=rpGame(); if(!g) return; const fp=rpFirstPitch(g), r=rpMap[g.id]||{};
+  const nm=sd=>((g.teams||{})[sd]||{}).name||(sd==='home'?'主隊':'客隊');
+  $('rpTitle').value=r.title||(nm('away')+' vs '+nm('home'));
+  $('rpYt').value=r.yt||''; $('rpAdj').value=r.adj||0;
+  const ans=rpAnchors(g); $('rpAnchor').innerHTML=ans.map(e=>'<option value="'+e.id+'">'+(e.inningBefore||1)+' 局'+(e.halfBefore==='top'?'上':'下')+' 第一球・'+(e.batterName||'')+' 打擊</option>').join('');
+  if(r.anchorId&&ans.some(e=>e.id===r.anchorId)) $('rpAnchor').value=r.anchorId;
+  rpAnchorInfo(); rpPreview(); }
+function rpAnchorInfo(){ const g=rpGame(), r=(g&&rpMap[g.id])||{}, a=rpAnchor(); if(!a){ $('rpFirst').textContent='這場沒有逐球時間'; return; }
+  $('rpSec').value=r.t0?fmt(Math.max(0,(a.ts-r.t0)/1000)):'';
+  $('rpFirst').textContent='紀錄時間 '+new Date(a.ts).toLocaleTimeString('zh-TW')+'。請在影片裡找到這一球投出的時間填在下面。'; }
+function rpPreview(){ const st=parseTime($('rpSec').value); embed($('rpPrev'), $('rpYt').value, isNaN(st)?0:Math.max(0,st-5)); }
+async function rpLoad(){
+  try{
+    const cfg=await fetch('config.json?x='+Date.now()).then(r=>r.json());
+    const o=await fetch(cfg.api+(cfg.api.includes('?')?'&':'?')+'action=history').then(r=>r.json());
+    rpGames=(o.games||[]).filter(g=>g&&g.id&&g.events&&g.events.length).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+    onValue(ref(db,'replays'), s=>{ rpMap=s.val()||{}; const cur=$('rpGame').value;
+      $('rpGame').innerHTML=rpGames.map(g=>{ const nm=sd=>((g.teams||{})[sd]||{}).name||''; return '<option value="'+g.id+'">'+(rpMap[g.id]?'● ':'')+(g.date||'')+'　'+nm('away')+' vs '+nm('home')+'</option>'; }).join('');
+      if(cur&&rpGames.some(g=>g.id===cur)) $('rpGame').value=cur; rpFill(); });
+  }catch(e){ $('rpMsg').textContent='讀取比賽清單失敗：'+e.message; $('rpMsg').className='msg err'; }
+}
+$('rpGame').onchange=rpFill; $('rpAnchor').onchange=()=>{ rpAnchorInfo(); rpPreview(); };
+['rpYt','rpSec'].forEach(k=>$(k).addEventListener('input',()=>{ clearTimeout(window.__rpT); window.__rpT=setTimeout(rpPreview,500); }));
+$('rpSave').onclick=async()=>{ const g=rpGame(), out=$('rpMsg'); if(!g) return; const fp=rpAnchor(), yt=$('rpYt').value.trim(), st=parseTime($('rpSec').value), adj=Number($('rpAdj').value||0);
+  if(!ytId(yt)) return msg(out,'YouTube 網址看不懂',false);
+  if(!fp) return msg(out,'這場沒有逐球時間，無法重播',false);
+  if(isNaN(st)||!$('rpSec').value.trim()) return msg(out,'請填這一球在影片中的時間（例：1:14:48）',false);
+  if(isNaN(adj)||Math.abs(adj)>600) return msg(out,'微調秒數要在 ±600 之間',false);
+  try{ const gc={id:g.id, date:g.date||'', innings:g.innings||9, teams:g.teams||{}, state:g.state||{}, updatedAt:g.updatedAt||'', events:g.events}; await set(ref(db,'replayGames/'+g.id), JSON.parse(JSON.stringify(gc)));
+    await set(ref(db,'replays/'+g.id),{title:$('rpTitle').value.trim().slice(0,40)||g.id, date:g.date||'', yt:yt, t0:fp.ts-st*1000, adj:adj, firstTs:(rpFirstPitch(g)||fp).ts, anchorId:fp.id, updatedAt:serverTimestamp()});
+    msg(out,'已儲存，觀眾可以在觀賽頁「觀看比賽重播」看到這場',true); }catch(e){ msg(out,'儲存失敗：'+(e.code||e.message),false); } };
+$('rpDel').onclick=async()=>{ const g=rpGame(); if(!g||!rpMap[g.id]) return; if(!confirm('確定刪除這場的重播設定？（不會刪除比賽紀錄和聊天）')) return;
+  try{ await set(ref(db,'replays/'+g.id),null); await set(ref(db,'replayGames/'+g.id),null); msg($('rpMsg'),'已刪除這場的重播設定',true); }catch(e){ msg($('rpMsg'),'刪除失敗：'+(e.code||e.message),false); } };
 
 /* 支持紀錄（只有球隊帳號讀得到） */
 let spRows=[], spOn=false;

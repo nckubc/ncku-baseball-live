@@ -209,6 +209,7 @@ input,select{font:inherit;}
 .lgitem b{flex:1;font-size:15px;}
 .lgd{font-size:12px;color:var(--muted);white-space:nowrap;}
 .lgp{font-size:12.5px;color:var(--acc-l);white-space:nowrap;}
+.freenote{text-align:center;font-size:12px;color:var(--muted);margin-top:8px;}
 .spintro{font-size:12.5px;line-height:1.7;color:var(--muted);background:var(--panel2);border-radius:10px;padding:8px 12px;margin:2px 0 10px;}
 .spnote{text-align:center;font-weight:800;font-size:15px;line-height:1.6;color:var(--text);margin:2px 0 8px;}
 .spdone{font-size:12.5px;color:var(--muted);text-align:center;margin:4px 0 12px;}
@@ -410,7 +411,7 @@ function applyCmd(m){
 }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el) return; if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261120095301';
+var BUILD='20261120102117';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -1202,7 +1203,7 @@ function renderSide(){
     if(r.ourPit) add(st.k,r.pit,r.out==='K'?1:0); });
   function board(title, o, unit){ var ks=Object.keys(o).filter(function(n){return o[n]>0;}).sort(function(a,b){return o[b]-o[a];}).slice(0,3);
     return '<div class="lb"><div class="lbt">'+title+'</div>'+(ks.length?ks.map(function(n,i){ return '<div class="r"><span class="rk'+(i+1)+'">'+(i+1)+'</span>'+avatar(n)+'<span class="lbn">'+esc(n)+'</span><b>'+o[n]+unit+'</b></div>'; }).join(''):'<div class="muted lbe">還沒有</div>')+'</div>'; }
-  h+='<div class="sec">本場排行榜　<button class="tag" data-act="stats" style="border:0">完整統計</button></div><div class="lbs">'+
+  h+='<div class="sec">本場排行榜　<button class="tag" data-act="stats" style="border:0">完整統計</button><span class="muted" style="font-size:11px">🚀 火箭免費</span></div><div class="lbs">'+
     board('人氣 🚀', cnt.to, '')+board('安打', st.h, ' 支')+board('壘打數', st.tb, '')+board('三振（投手）', st.k, ' K')+board('四死球', st.bb, '')+board('火箭王（觀眾）', cnt.from, ' 排')+
     '</div><div style="height:12px"></div>';
   el.innerHTML=h;
@@ -1223,7 +1224,7 @@ function renderSheet(){
     var pi=pinfo(sh.name); if(pi&&pi.hr) h=h.replace('</h3>','<span class="hrchip">本季 '+pi.hr+' 轟</span></h3>');
     if(pi&&(pi.dept||pi.school||pi.intro)) h+='<div class="pintro">'+((pi.dept||pi.school)?'<div class="dept">'+esc([pi.dept,pi.school].filter(Boolean).join(' · '))+'</div>':'')+(pi.intro?'<div class="intro">'+esc(pi.intro)+'</div>':'')+'</div>';
     if(!sh.view){
-      h+='<div class="bigbtns three"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button><button data-act="supportP" data-name="'+esc(sh.name)+'">支持乙棒</button></div>';
+      h+='<div class="bigbtns three"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button><button data-act="supportP" data-name="'+esc(sh.name)+'">支持乙棒</button></div>'+'<div class="freenote">🚀 火箭免費，不用錢，想刷幾排都可以！</div>';
     } else {
       var st=(pinfo(sh.name)||{}).stats||null, meta=PLAYERS._stats||{};
       function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div'+(k==='全壘打'&&+o[k]>0?' class="hl"':'')+'><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }

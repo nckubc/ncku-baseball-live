@@ -188,6 +188,26 @@ input,select{font:inherit;}
 .fld{width:112px;height:112px;}
 .pdkv{grid-template-columns:repeat(auto-fit,minmax(110px,1fr));}
 .pdkv .v{font-size:15px;line-height:1.35;}
+#landing{position:fixed;inset:0;z-index:58;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%,#2a1414,#0b0b0d 70%);padding:calc(16px + var(--safe-t)) 16px calc(16px + var(--safe-b));overflow-y:auto;}
+#landing[hidden]{display:none;}
+.lgbox{width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;}
+.lgbox.lgwide{max-width:520px;}
+.lglogo{width:96px;height:96px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px #efe3c866,0 0 30px #b3262d88;}
+.lgclub{font-weight:900;letter-spacing:4px;font-size:16px;color:#f2e6c8;}
+.lgclub small{display:block;font-weight:600;letter-spacing:2px;font-size:11px;color:#b9ad95;margin-top:4px;}
+.lgbtn{width:100%;padding:16px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);color:var(--text);display:flex;flex-direction:column;gap:4px;align-items:center;cursor:pointer;}
+.lgbtn b{font-size:18px;}
+.lgbtn span{font-size:12.5px;color:var(--muted);}
+.lgbtn.pri{background:var(--acc);border-color:var(--acc);}
+.lgbtn.pri span{color:#f6dcdc;}
+.lgbtn .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;margin-right:6px;animation:spGlow 1.4s infinite;}
+.lglink{background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;cursor:pointer;padding:6px;}
+.lgtitle{font-weight:800;font-size:16px;}
+.lglist{width:100%;display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto;}
+.lgitem{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);text-align:left;cursor:pointer;}
+.lgitem b{flex:1;font-size:15px;}
+.lgd{font-size:12px;color:var(--muted);white-space:nowrap;}
+.lgp{font-size:12.5px;color:var(--acc-l);white-space:nowrap;}
 .spintro{font-size:12.5px;line-height:1.7;color:var(--muted);background:var(--panel2);border-radius:10px;padding:8px 12px;margin:2px 0 10px;}
 .spnote{text-align:center;font-weight:800;font-size:15px;line-height:1.6;color:var(--text);margin:2px 0 8px;}
 .spdone{font-size:12.5px;color:var(--muted);text-align:center;margin:4px 0 12px;}
@@ -274,6 +294,8 @@ input,select{font:inherit;}
   .sb .pill{padding:2px 6px;font-size:12px;}
   .sb .iconbtn{position:absolute;right:8px;top:5px;}
   .sb .iconbtn.demobtn{right:50px;top:10px;}
+  .sb .iconbtn.homebtn{right:92px;}
+  .sb{padding-right:134px !important;}
   .vph{gap:3px;padding:6px;}
   .vph .vphlogo{width:58px;height:58px;}
   .vph .club{font-size:12.5px;letter-spacing:3px;}
@@ -420,7 +442,7 @@ function startReplay(gid){
   var pGame=fetch(fbBase()+'/replayGames/'+encodeURIComponent(gid)+'.json').then(function(r){ return r.json(); }).catch(function(){ return null; }).then(function(g){
     if(g&&g.events) return g; if(findG()) return findG(); return api({action:'history'}).then(function(o){ S.hist=o.games||[]; return findG(); }); });
   Promise.all([
-    fetch(fbBase()+'/replays/'+encodeURIComponent(gid)+'.json').then(function(r){ return r.json(); }),
+    replayMeta(gid),
     pGame,
     fetch(fbBase()+'/live/'+encodeURIComponent(gid)+'/log.json').then(function(r){ return r.json(); }).catch(function(){ return {}; })
   ]).then(function(a){
@@ -456,7 +478,7 @@ function replayTick(){
 }
 function exitReplay(){ stopAll(); S.replay=null; S.cur=null; S.model=null; S.log=[]; S.seen={}; S.lastEvN=-1; S.sheet=null;
   try{ var q=new URLSearchParams(location.search); q.delete('replay'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')); QS=q; }catch(e){}
-  var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; startLive(); render(); }
+  var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; render(); showLanding('history'); }
 function replaysSheetHTML(){
   var L=S.replayList;
   if(!L) return '<h3>比賽重播</h3><div class="muted">載入中…</div>';
@@ -465,6 +487,82 @@ function replaysSheetHTML(){
     (ks.length?ks.map(function(k){ return '<button class="prow" data-act="openReplay" data-gid="'+esc(k)+'"><span class="mid"><span class="nm">'+esc(L[k].title||k)+'</span> <span class="tag">'+esc(L[k].date||'')+'</span></span><span class="muted">播放 ›</span></button>'; }).join(''):'<div class="muted" style="padding:10px 0">目前還沒有可以重播的比賽</div>')+
     '</div><div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
 }
+/* ===== 首頁：看直播 / 歷次比賽 ===== */
+function wantDirect(){ return !!(QS.get('replay')||QS.get('demo')||QS.get('v')||QS.get('live')); }
+function showLanding(view){
+  stopAll(); S.mode='home'; S.replay=null; S.sheet=null; renderSheet();
+  if(S.room&&S.room.es){ try{ S.room.es.close(); }catch(e){} } S.room={state:'off', es:null, key:null};
+  var el=document.getElementById('landing'); if(!el){ el=document.createElement('div'); el.id='landing'; document.body.appendChild(el); }
+  el.hidden=false; S.landView=view||'main'; renderLanding();
+  if(S.landView==='history') loadHistoryList();
+}
+function hideLanding(){ var el=document.getElementById('landing'); if(el) el.hidden=true; }
+function renderLanding(){
+  var el=document.getElementById('landing'); if(!el) return;
+  var liveOn=!!(S.remote.yt||S.site.yt);
+  var head='<img class="lglogo" alt="NCKU" src="'+LOGO+'"><div class="lgclub">NCKU BASEBALL CLUB<small>Since 2015</small></div>';
+  if(S.landView==='history'){
+    var L=S.histList;
+    el.innerHTML='<div class="lgbox lgwide">'+head+'<div class="lgtitle">歷次比賽</div><div class="lglist">'+
+      (!L?'<div class="muted">載入中…</div>':(L.length?L.map(function(r){ return '<button class="lgitem" data-act="openReplay" data-gid="'+esc(r.gid)+'"><span class="lgd">'+esc(r.date||'')+'</span><b>'+esc(r.title||r.gid)+'</b><span class="lgp">重播 ›</span></button>'; }).join(''):'<div class="muted">目前還沒有可以重播的比賽</div>'))+
+      '</div><button class="lglink" data-act="landMain">‹ 返回</button></div>';
+  } else {
+    el.innerHTML='<div class="lgbox">'+head+
+      '<button class="lgbtn pri" data-act="goLive"><b>觀看直播</b><span>'+(liveOn?'<i class="dot"></i>直播進行中':'比分、聊天、火箭')+'</span></button>'+
+      '<button class="lgbtn" data-act="goHistory"><b>歷次比賽</b><span>重播當時的影片、紀錄和聊天</span></button>'+
+      '<button class="lglink" data-act="sponsor">支持我們</button></div>';
+  }
+}
+function loadHistoryList(){
+  S.histList=null; renderLanding();
+  Promise.all([
+    fetch(fbBase()+'/replays.json').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
+    fetch(fbBase()+'/replayIndex.json').then(function(r){ return r.json(); }).catch(function(){ return {}; })
+  ]).then(function(a){
+    var m={}; Object.keys(a[1]||{}).forEach(function(k){ var r=a[1][k]; if(r&&r.yt) m[k]={gid:k, title:r.title, date:r.date}; });
+    Object.keys(a[0]||{}).forEach(function(k){ var r=a[0][k]; if(r&&r.yt) m[k]={gid:k, title:r.title||(m[k]||{}).title, date:r.date||(m[k]||{}).date}; });
+    S.histList=Object.keys(m).map(function(k){ return m[k]; }).sort(function(x,y){ return String(y.date||'').localeCompare(String(x.date||'')); });
+    if(S.mode==='home'&&S.landView==='history') renderLanding();
+  });
+}
+/* 重播設定：後台有設就用後台的；沒有就用直播時自動記下的影片和對齊點 */
+function replayMeta(gid){
+  var g=encodeURIComponent(gid);
+  return fetch(fbBase()+'/replays/'+g+'.json').then(function(r){ return r.json(); }).then(function(m){
+    if(m&&m.yt) return m;
+    return Promise.all([fetch(fbBase()+'/live/'+g+'/rec.json').then(function(r){ return r.json(); }), fetch(fbBase()+'/replayIndex/'+g+'.json').then(function(r){ return r.json(); })]).then(function(b){
+      var rec=b[0], ix=b[1]||{}; if(!rec||!rec.yt) return null;
+      return {title:ix.title||'', date:ix.date||'', yt:rec.yt, t0:rec.wall-rec.sec*1000, adj:0};
+    });
+  });
+}
+/* ===== 直播時自動記錄：影片代號＋對齊點（第一位觀眾寫入）、比賽紀錄副本（每 15 球更新一次） ===== */
+var REC_DONE={}, COPY_AT={}, COPYING=false;
+function autoRecord(){
+  if(S.mode!=='live'||!S.cur||!fbOn()||!S.yt||!S.yt.getPlayerState) return;
+  var gid=String(S.cur.id), g=encodeURIComponent(gid);
+  try{
+    if(!REC_DONE[gid]&&S.yt.getPlayerState()===1){
+      var vd=S.yt.getVideoData&&S.yt.getVideoData(), vid=vd&&vd.video_id, sec=S.yt.getCurrentTime();
+      if(vid&&sec>0){
+        REC_DONE[gid]=1;
+        var nm=function(sd){ return ((S.cur.teams||{})[sd]||{}).name||''; };
+        fetch(fbBase()+'/live/'+g+'/rec.json',{method:'PUT',body:JSON.stringify({yt:vid, wall:Date.now(), sec:sec})}).catch(function(){});
+        fetch(fbBase()+'/replayIndex/'+g+'.json',{method:'PUT',body:JSON.stringify({yt:vid, title:(nm('away')+' vs '+nm('home')).slice(0,40), date:String(S.cur.date||'').slice(0,20), t:{'.sv':'timestamp'}})}).catch(function(){});
+      }
+    }
+  }catch(e){}
+  var n=(S.cur.events||[]).length, last=COPY_AT[gid]||0;
+  if(n>0&&n-last>=15&&!COPYING){ COPYING=true;
+    fetch(fbBase()+'/replayGames/'+g+'/n.json').then(function(r){ return r.json(); }).then(function(stored){
+      COPY_AT[gid]=Math.max(n, +stored||0);
+      if((+stored||0)>=n) return;
+      var c=S.cur, body={id:c.id, date:c.date||'', innings:c.innings||9, teams:c.teams||{}, state:c.state||{}, updatedAt:c.updatedAt||'', events:c.events, n:n};
+      return fetch(fbBase()+'/replayGames/'+g+'.json',{method:'PUT',body:JSON.stringify(JSON.parse(JSON.stringify(body)))});
+    }).catch(function(){}).then(function(){ COPYING=false; });
+  }
+}
+setInterval(autoRecord, 15000);
 /* 贊助：球隊轉帳帳戶（QR Code 之後放 sponsor-qr.png，再把 qr 設成檔名） */
 var SPONSOR={bank:'中華郵政', code:'700', acct:'0031071-0891691', qr:''};
 var BOOT_T0=Date.now();
@@ -968,7 +1066,7 @@ function shell(){
 }
 function scorebar(){
   var x=situation();
-  var gear='<span class="sp"></span><button class="sponsorbtn" data-act="sponsor">支持我們</button><button class="iconbtn demobtn'+(S.mode==='demo'?' on':'')+'" data-act="demoToggle" title="'+(S.mode==='demo'?'離開 DEMO':'看 DEMO 示範')+'">'+(S.mode==='demo'?'離開':'DEMO')+'</button><button class="iconbtn" data-act="settings" title="設定" aria-label="設定"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>';
+  var gear='<span class="sp"></span><button class="sponsorbtn" data-act="sponsor">支持我們</button><button class="iconbtn homebtn" data-act="home" title="回首頁" aria-label="回首頁"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button><button class="iconbtn demobtn'+(S.mode==='demo'?' on':'')+'" data-act="demoToggle" title="'+(S.mode==='demo'?'離開 DEMO':'看 DEMO 示範')+'">'+(S.mode==='demo'?'離開':'DEMO')+'</button><button class="iconbtn" data-act="settings" title="設定" aria-label="設定"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>';
   if(!x){ return '<b data-act="secret">成大棒球 線上觀賽</b><span class="muted">'+(S.mode==='live'?(S.live.err?'連線問題：'+esc(S.live.err):'連線中…'):'尚未連到比賽')+'</span>'+gear; }
   var st=x.st, ours=x.names[x.ourSide], opp=x.names[x.ourSide==='home'?'away':'home'], oppSide=x.ourSide==='home'?'away':'home';
   var outs=''; for(var i=0;i<3;i++) outs+='<i'+(i<(st.outs||0)?' class="on"':'')+'></i>';
@@ -1198,8 +1296,13 @@ document.addEventListener('click',function(ev){
   else if(a==='pback'){ S.sheet.view=null; renderSheet(); }
   else if(a==='rocket'){ var nm=t.dataset.name; S.sheet=null; renderSheet(); sendRocket(nm); }
   else if(a==='close'){ S.sheet=null; renderSheet(); }
-  else if(a==='replays'){ S.sheet={type:'replays'}; renderSheet(); fetch(fbBase()+'/replays.json').then(function(r){ return r.json(); }).then(function(o){ S.replayList=o||{}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }).catch(function(){ S.replayList={}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }); }
-  else if(a==='openReplay'){ var gid=t.dataset.gid; try{ var q=new URLSearchParams(location.search); q.set('replay',gid); q.delete('demo'); history.replaceState(null,'',location.pathname+'?'+q.toString()); QS=q; }catch(e){} startReplay(gid); }
+  else if(a==='replays'){ showLanding('history'); }
+  else if(a==='home'){ try{ history.replaceState(null,'',location.pathname); QS=new URLSearchParams(''); }catch(e){} S.cur=null; S.model=null; S.log=[]; S.seen={}; S.lastEvN=-1; S.demo=null; var ap=document.getElementById('app'); ap.dataset.built=''; S.yt=null; render(); showLanding(); }
+  else if(a==='goLive'){ hideLanding(); var ap2=document.getElementById('app'); ap2.dataset.built=''; S.yt=null; startLive(); render(); }
+  else if(a==='goHistory'){ S.landView='history'; renderLanding(); loadHistoryList(); }
+  else if(a==='landMain'){ S.landView='main'; renderLanding(); }
+  else if(a==='replays'&&false){ S.sheet={type:'replays'}; renderSheet(); fetch(fbBase()+'/replays.json').then(function(r){ return r.json(); }).then(function(o){ S.replayList=o||{}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }).catch(function(){ S.replayList={}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }); }
+  else if(a==='openReplay'){ hideLanding(); var gid=t.dataset.gid; try{ var q=new URLSearchParams(location.search); q.set('replay',gid); q.delete('demo'); history.replaceState(null,'',location.pathname+'?'+q.toString()); QS=q; }catch(e){} startReplay(gid); }
   else if(a==='exitReplay'){ exitReplay(); }
   else if(a==='pdet'){ S.sheet={type:'pdet', ei:+t.dataset.ei}; renderSheet(); }
   else if(a==='bullpen'){ S.sheet={type:'bullpen'}; renderSheet(); }
@@ -1240,7 +1343,7 @@ window.addEventListener('storage',function(e){ /* 備援：BroadcastChannel 不�
   if(bc||!S.cur||e.key!==logKey()) return; (loadJSON(logKey(),[])||[]).forEach(function(m){ receive(m,false); }); });
 
 /* ================= 啟動 ================= */
-loadPlayers(); loadSite(true).then(function(){ connectCfg(); if(wantReplay()) startReplay(wantReplay()); else if(wantSrc()==='live') startLive(); else startDemo(); setInterval(function(){ if(!document.hidden) loadSite(false); }, 60000); });
+loadPlayers(); loadSite(true).then(function(){ connectCfg(); if(wantReplay()) startReplay(wantReplay()); else if(wantSrc()==='demo') startDemo(); else if(wantDirect()) startLive(); else { render(); showLanding(); } setInterval(function(){ if(!document.hidden) loadSite(false); }, 60000); });
 })();
 </script>
 </body>

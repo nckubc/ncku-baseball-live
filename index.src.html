@@ -180,6 +180,7 @@ input,select{font:inherit;}
 .lastp{cursor:pointer;}
 .pdhint{font-size:11.5px;color:var(--acc-l);margin-top:2px;}
 .pa[data-act]{cursor:pointer;}
+.pa.fut{opacity:.28;}
 .pdrow{cursor:pointer;}
 .pdgrid{display:flex;gap:16px;justify-content:center;align-items:flex-start;margin:6px 0 10px;flex-wrap:wrap;}
 .pdzone{display:flex;flex-direction:column;align-items:center;gap:6px;}
@@ -453,7 +454,7 @@ function startReplay(gid){
   ]).then(function(a){
     if(S.mode!=='replay'||!S.replay||S.replay.gid!==gid) return;
     if(!a[0]||!a[0].yt||!a[1]){ toast('這場還沒有設定重播'); exitReplay(); return; }
-    var R=S.replay; R.meta=a[0]; R.game=a[1];
+    var R=S.replay; R.meta=a[0]; R.game=a[1]; R.fullRecs=null;
     R.logs=Object.keys(a[2]||{}).map(function(k){ return a[2][k]; }).filter(function(m){ return m&&m.id&&m.t; }).sort(function(x,y){ return x.t-y.t; });
     var fp=R.game.events.find(function(e){ return (e.type==='pitch'||e.type==='battedball')&&e.ts; }); R.firstTs=fp?fp.ts:(R.game.events[0]||{}).ts||0;
     var app2=document.getElementById('app'); app2.dataset.built=''; S.yt=null;
@@ -790,6 +791,24 @@ function outCls(o){ return o==='HR'?'hr':(HITS.indexOf(o)>=0?'h':(o==='K'?'k':(o
 function todayBat(name){
   var rs=S.model?S.model.today.filter(function(r){return r.bat===name&&r.paEnd&&r.out;}):[], m=M(rs);
   return {ab:m.ab, h:m.h, pas:rs, txt:m.ab+' 之 '+m.h};
+}
+/* 打席小卡：重播時顯示整場所有打席，還沒發生的淡化；點下去跳到這筆紀錄被記錄前 10 秒 */
+function paChips(name, tb){
+  var R=S.replay;
+  if(S.mode==='replay'&&R&&R.game){
+    if(!R.fullRecs){ try{ R.fullRecs=normGame(R.game).recs; }catch(e){ R.fullRecs=[]; } }
+    var rs=R.fullRecs.filter(function(r){ return r.bat===name&&r.paEnd&&r.out; });
+    if(!rs.length) return '';
+    return '<span class="pas">'+rs.map(function(r){ var fut=r.ei>=R.evN; return '<span class="pa '+outCls(r.out)+(fut?' fut':'')+'" data-act="rpJump" data-ei="'+r.ei+'" title="跳到這個打席（記錄前 10 秒）">'+esc(outLabel(r))+'</span>'; }).join('')+'</span>';
+  }
+  if(!tb.pas.length) return '';
+  return '<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'" data-act="pdet" data-ei="'+r.ei+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span>';
+}
+function rpJumpEi(ei){
+  var R=S.replay, e=R&&R.game&&R.game.events[+ei]; if(!e||!e.ts||!S.yt||!S.yt.seekTo) return;
+  var sec=replayVideoSec(e.ts); if(sec==null) return;
+  try{ S.yt.seekTo(Math.max(0,sec-10),true); S.yt.playVideo(); }catch(x){}
+  rpFlash((e.batterName||'')+' 這個打席', 0); setTimeout(replayTick, 300);
 }
 function todayPit(name){
   var rs=S.model?S.model.today.filter(function(r){return r.pit===name;}):[], m=M(rs);
@@ -1195,7 +1214,7 @@ function renderSide(){
       '<span class="ord">'+(i+1)+'</span><span class="num">'+(dispNum(p)?'#'+esc(dispNum(p)):'')+'</span>'+
       '<span class="mid">'+avatar(p.name)+'<span class="nm">'+esc(p.name)+'</span> <span class="pos">'+esc(POS_LABEL[p.pos]||p.pos||'')+'</span> '+
         (cur?'<span class="tag hot">打擊中</span>':(next?'<span class="tag">'+(x.weBat?'下一棒':'下局首棒')+'</span>':''))+
-        '<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'" data-act="pdet" data-ei="'+r.ei+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span></span>'+
+        paChips(p.name, tb)+'</span>'+
       '<span><div class="line">'+tb.txt+'</div><div class="rk">'+rkTxt(p.name)+'</div></span></button>';
   });
   /* 投手：今天上過場的成大投手 */
@@ -1227,7 +1246,7 @@ function renderSide(){
     if(S.othersOpen) others.forEach(function(p){ var pl=!!played[p.name], tb=todayBat(p.name);
       h+='<button class="prow'+(pl?'':' dim')+'" data-act="player" data-name="'+esc(p.name)+'"><span class="ord"></span><span class="num">'+(dispNum(p)?'#'+esc(dispNum(p)):'')+'</span>'+
         '<span class="mid">'+avatar(p.name)+'<span class="nm">'+esc(p.name)+'</span> '+(LL.out[p.name]?'<span class="tag">已退場</span>':(pl?'<span class="tag ok">今日已上場</span>':'<span class="tag">未上場</span>'))+
-        (tb.pas.length?'<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'" data-act="pdet" data-ei="'+r.ei+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span>':'')+'</span>'+
+        paChips(p.name, tb)+'</span>'+
         '<span><div class="line">'+(tb.pas.length?tb.txt:'')+'</div><div class="rk">'+rkTxt(p.name)+'</div></span></button>'; });
   }
   /* 本場排行榜（只算成大） */
@@ -1343,6 +1362,7 @@ document.addEventListener('click',function(ev){
   else if(a==='replays'&&false){ S.sheet={type:'replays'}; renderSheet(); fetch(fbBase()+'/replays.json').then(function(r){ return r.json(); }).then(function(o){ S.replayList=o||{}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }).catch(function(){ S.replayList={}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }); }
   else if(a==='openReplay'){ hideLanding(); var gid=t.dataset.gid; try{ var q=new URLSearchParams(location.search); q.set('replay',gid); q.delete('demo'); history.replaceState(null,'',location.pathname+'?'+q.toString()); QS=q; }catch(e){} startReplay(gid); }
   else if(a==='exitReplay'){ exitReplay(); }
+  else if(a==='rpJump'){ rpJumpEi(t.dataset.ei); }
   else if(a==='rpSeek'){ rpSeek(+t.dataset.d); }
   else if(a==='rpRate'){ var rs=[1,1.5,2]; S.rpRate=rs[(rs.indexOf(S.rpRate||1)+1)%rs.length]; try{ S.yt.setPlaybackRate(S.rpRate); }catch(e){} t.textContent=S.rpRate+'x'; rpFlash('速度 '+S.rpRate+'x', 0); }
   else if(a==='pdet'){ S.sheet={type:'pdet', ei:+t.dataset.ei}; renderSheet(); }

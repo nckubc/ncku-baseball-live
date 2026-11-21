@@ -792,22 +792,29 @@ function todayBat(name){
   var rs=S.model?S.model.today.filter(function(r){return r.bat===name&&r.paEnd&&r.out;}):[], m=M(rs);
   return {ab:m.ab, h:m.h, pas:rs, txt:m.ab+' 之 '+m.h};
 }
-/* 打席小卡：重播時顯示整場所有打席，還沒發生的淡化；點下去跳到記錄前（全壘打 25 秒、安打 20 秒、其他 15 秒） */
+/* 打席小卡：重播時顯示整場所有打席，還沒發生的淡化；點下去跳到記錄前（秒數見 rpBack） */
 function paChips(name, tb){
   var R=S.replay;
   if(S.mode==='replay'&&R&&R.game){
     if(!R.fullRecs){ try{ R.fullRecs=normGame(R.game).recs; }catch(e){ R.fullRecs=[]; } }
     var rs=R.fullRecs.filter(function(r){ return r.bat===name&&r.paEnd&&r.out; });
     if(!rs.length) return '';
-    return '<span class="pas">'+rs.map(function(r){ var fut=r.ei>=R.evN; return '<span class="pa '+outCls(r.out)+(fut?' fut':'')+'" data-act="rpJump" data-ei="'+r.ei+'" title="跳到這個打席（全壘打前 25 秒、安打前 20 秒、其他前 15 秒）">'+esc(outLabel(r))+'</span>'; }).join('')+'</span>';
+    return '<span class="pas">'+rs.map(function(r){ var fut=r.ei>=R.evN; return '<span class="pa '+outCls(r.out)+(fut?' fut':'')+'" data-act="rpJump" data-ei="'+r.ei+'" title="跳到這個打席">'+esc(outLabel(r))+'</span>'; }).join('')+'</span>';
   }
   if(!tb.pas.length) return '';
   return '<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'" data-act="pdet" data-ei="'+r.ei+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span>';
 }
+/* 回推秒數：基本 15 秒；安打每多一個壘包 +6（二安 21、三安 27、全壘打 33）；每個失誤 +10 */
+function rpBack(e){
+  var extra={'2B':6,'3B':12,'HR':18}[e.finalOutcome]||0;
+  var errs=(e.errorDetails&&e.errorDetails.length)||((e.chain||[]).filter(function(c){ return c&&c.error; }).length);
+  if(!errs&&e.finalOutcome==='ROE') errs=1;
+  return 15+extra+errs*10;
+}
 function rpJumpEi(ei){
   var R=S.replay, e=R&&R.game&&R.game.events[+ei]; if(!e||!e.ts||!S.yt||!S.yt.seekTo) return;
   var sec=replayVideoSec(e.ts); if(sec==null) return;
-  var back=e.finalOutcome==='HR'?25:(HITS.indexOf(e.finalOutcome)>=0?20:15);   /* 全壘打回推 25 秒、安打 20 秒、其他 15 秒 */
+  var back=rpBack(e);
   try{ S.yt.seekTo(Math.max(0,sec-back),true); S.yt.playVideo(); }catch(x){}
   rpFlash((e.batterName||'')+' 這個打席', 0); setTimeout(replayTick, 300);
 }

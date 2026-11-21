@@ -411,7 +411,7 @@ function applyCmd(m){
 }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el) return; if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261120102117';
+var BUILD='20261121134841';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -457,10 +457,27 @@ function startReplay(gid){
     replayApply(R.firstTs-1, true); S.timer=setInterval(function(){ replayTick(); }, 500);
   }).catch(function(){ toast('重播載入失敗'); exitReplay(); });
 }
+/* 紀錄系統存的是賽後陣容：從最後一個換人事件往回推，還原到第 n 球當下的陣容與投手 */
+function replayTeams(G, n){
+  var T=JSON.parse(JSON.stringify(G.teams||{})), ev=G.events||[];
+  for(var i=ev.length-1;i>=n;i--){ var e=ev[i]; if(e.type!=='sub'||!e.inPlayerName||!e.outPlayerName) continue;
+    var t=T[subTeam(e)]; if(!t) continue; t.lineup=t.lineup||[]; t.bench=t.bench||[];
+    var all=t.lineup.concat(t.bench).filter(Boolean);
+    var inP=all.find(function(q){ return q.name===e.inPlayerName; })||{name:e.inPlayerName};
+    var outP=all.find(function(q){ return q.name===e.outPlayerName; })||{name:e.outPlayerName};
+    var k=-1; t.lineup.forEach(function(q,j){ if(q&&q.name===e.inPlayerName) k=j; });
+    if(k>=0){ var slot=t.lineup[k], o=JSON.parse(JSON.stringify(outP));
+      o.pos=/投手/.test(e.kind||'')?'P':(/守備/.test(e.kind||'')&&e.position?e.position:(outP.pos||slot.pos));
+      t.lineup[k]=o; }
+    if(/投手/.test(e.kind||'')&&outP.id&&(t.pitcherId===inP.id||!t.pitcherId)) t.pitcherId=outP.id;
+    if(!t.bench.some(function(q){ return q&&q.name===inP.name; })) t.bench.push(inP);
+  }
+  return T;
+}
 function replayApply(now, rebuild){
   var R=S.replay, G=R.game, ev=G.events, n=0; while(n<ev.length&&(ev[n].ts||0)<=now) n++;
   if(n!==R.evN){ if(n<R.evN||rebuild) S.lastEvN=-1; R.evN=n;   /* 拖動影片時不補播中間的系統播報 */
-    setGame({id:G.id, date:G.date, innings:G.innings, teams:G.teams, updatedAt:G.updatedAt, events:ev.slice(0,n), state:replayState(G,n)}); }
+    setGame({id:G.id, date:G.date, innings:G.innings, teams:replayTeams(G,n), updatedAt:G.updatedAt, events:ev.slice(0,n), state:replayState(G,n)}); }
   if(rebuild){
     S.log=[]; S.seen={}; S.bullpen={}; S.alert=null; R.li=0;
     while(R.li<R.logs.length&&R.logs[R.li].t<=now){ receive(R.logs[R.li],false,true); R.li++; }

@@ -415,7 +415,7 @@ function applyCmd(m){
 }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el) return; if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261121140626';
+var BUILD='20261121140801';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -792,14 +792,14 @@ function todayBat(name){
   var rs=S.model?S.model.today.filter(function(r){return r.bat===name&&r.paEnd&&r.out;}):[], m=M(rs);
   return {ab:m.ab, h:m.h, pas:rs, txt:m.ab+' 之 '+m.h};
 }
-/* 打席小卡：重播時顯示整場所有打席，還沒發生的淡化；點下去跳到記錄前（安打 20 秒、其他 15 秒） */
+/* 打席小卡：重播時顯示整場所有打席，還沒發生的淡化；點下去跳到記錄前（全壘打 25 秒、安打 20 秒、其他 15 秒） */
 function paChips(name, tb){
   var R=S.replay;
   if(S.mode==='replay'&&R&&R.game){
     if(!R.fullRecs){ try{ R.fullRecs=normGame(R.game).recs; }catch(e){ R.fullRecs=[]; } }
     var rs=R.fullRecs.filter(function(r){ return r.bat===name&&r.paEnd&&r.out; });
     if(!rs.length) return '';
-    return '<span class="pas">'+rs.map(function(r){ var fut=r.ei>=R.evN; return '<span class="pa '+outCls(r.out)+(fut?' fut':'')+'" data-act="rpJump" data-ei="'+r.ei+'" title="跳到這個打席（安打前 20 秒、其他前 15 秒）">'+esc(outLabel(r))+'</span>'; }).join('')+'</span>';
+    return '<span class="pas">'+rs.map(function(r){ var fut=r.ei>=R.evN; return '<span class="pa '+outCls(r.out)+(fut?' fut':'')+'" data-act="rpJump" data-ei="'+r.ei+'" title="跳到這個打席（全壘打前 25 秒、安打前 20 秒、其他前 15 秒）">'+esc(outLabel(r))+'</span>'; }).join('')+'</span>';
   }
   if(!tb.pas.length) return '';
   return '<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'" data-act="pdet" data-ei="'+r.ei+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span>';
@@ -807,7 +807,7 @@ function paChips(name, tb){
 function rpJumpEi(ei){
   var R=S.replay, e=R&&R.game&&R.game.events[+ei]; if(!e||!e.ts||!S.yt||!S.yt.seekTo) return;
   var sec=replayVideoSec(e.ts); if(sec==null) return;
-  var back=HITS.indexOf(e.finalOutcome)>=0?20:15;   /* 安打回推 20 秒，其他 15 秒 */
+  var back=e.finalOutcome==='HR'?25:(HITS.indexOf(e.finalOutcome)>=0?20:15);   /* 全壘打回推 25 秒、安打 20 秒、其他 15 秒 */
   try{ S.yt.seekTo(Math.max(0,sec-back),true); S.yt.playVideo(); }catch(x){}
   rpFlash((e.batterName||'')+' 這個打席', 0); setTimeout(replayTick, 300);
 }

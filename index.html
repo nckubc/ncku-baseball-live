@@ -70,6 +70,9 @@ input,select{font:inherit;}
 .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"video side" "chat side";}
 .videoWrap{grid-area:video;position:relative;background:#000;aspect-ratio:16/9;max-height:calc(100dvh - 340px);width:100%;justify-self:center;}
 .chat{min-height:200px;}
+.rpseek{position:absolute;left:0;right:0;top:0;bottom:52px;z-index:2;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.rpflash{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3;pointer-events:none;padding:8px 16px;border-radius:999px;background:#000a;color:#fff;font-weight:800;font-size:15px;opacity:0;transition:opacity .2s;}
+.rpflash.on{opacity:1;} .rpflash.l{left:22%;} .rpflash.r{left:78%;}
 .videoWrap iframe,.videoWrap #yt{position:absolute;inset:0;width:100%;height:100%;border:0;}
 .vph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);background:radial-gradient(circle at 50% 40%,#1d1d21,#07080b);text-align:center;padding:10px;}
 .vph b{color:var(--text);font-size:18px;}
@@ -411,7 +414,7 @@ function applyCmd(m){
 }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el) return; if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261121134841';
+var BUILD='20261121135512';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -489,9 +492,23 @@ function replayApply(now, rebuild){
   R.lastNow=now;
   var c=document.getElementById('rpclock'); if(c){ var d=new Date(now); c.textContent=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2); }
 }
+/* 重播快轉：方向鍵、影片上雙擊（左半倒退、右半快轉）、上方按鈕 */
+function rpFlash(txt, side){ var f=document.getElementById('rpflash'); if(!f){ toast(txt); return; } f.textContent=txt; f.className='rpflash on'+(side<0?' l':side>0?' r':''); clearTimeout(f._t); f._t=setTimeout(function(){ f.className='rpflash'; }, 700); }
+function rpSeek(d){ if(S.mode!=='replay'||!S.yt||!S.yt.getCurrentTime) return; try{ var c=S.yt.getCurrentTime()||0, dur=S.yt.getDuration?S.yt.getDuration():0, to=Math.max(0,c+d); if(dur) to=Math.min(to,dur-1); S.yt.seekTo(to,true); }catch(e){}
+  rpFlash((d>0?'快轉 ':'倒退 ')+(Math.abs(d)>=60?Math.abs(d)/60+' 分鐘':Math.abs(d)+' 秒'), d); setTimeout(replayTick, 250); }
+function rpToggle(){ try{ if(S.yt.getPlayerState()===1){ S.yt.pauseVideo(); rpFlash('暫停',0); } else { S.yt.playVideo(); rpFlash('播放',0); } }catch(e){} }
+(function(){ var last=0, lx=0, tm=null;
+  document.addEventListener('pointerup', function(ev){ var o=ev.target; if(!o||o.id!=='rpseek') return;
+    var r=o.getBoundingClientRect(), side=(ev.clientX-r.left)<r.width/2?-1:1, now=Date.now();
+    if(now-last<320&&Math.abs(ev.clientX-lx)<80){ clearTimeout(tm); tm=null; last=0; rpSeek(side*10); return; }
+    last=now; lx=ev.clientX; clearTimeout(tm); tm=setTimeout(function(){ tm=null; rpToggle(); }, 320); });
+  document.addEventListener('keydown', function(ev){ if(S.mode!=='replay') return; var tg=ev.target, tn=(tg&&tg.tagName)||''; if(tn==='INPUT'||tn==='TEXTAREA'||(tg&&tg.isContentEditable)) return;
+    if(ev.key==='ArrowRight'){ ev.preventDefault(); rpSeek(ev.shiftKey?60:10); } else if(ev.key==='ArrowLeft'){ ev.preventDefault(); rpSeek(ev.shiftKey?-60:-10); } else if(ev.key===' '||ev.key==='k'){ ev.preventDefault(); rpToggle(); } });
+})();
 function replayTick(){
   var R=S.replay; if(S.mode!=='replay'||!R||!R.game) return;
   var now=replayNow(); if(now==null) return;
+  if(S.rpRate&&S.rpRate!==1){ try{ if(S.yt.getPlaybackRate()!==S.rpRate) S.yt.setPlaybackRate(S.rpRate); }catch(e){} }
   var jump=R.lastNow==null||now<R.lastNow-1500||now-R.lastNow>8000;   /* 往回拖或大幅跳轉：重建狀態，不重播特效 */
   replayApply(now, jump);
 }
@@ -1073,6 +1090,7 @@ function shell(){
     '<div class="main" data-tab="'+S.tab+'">'+
       '<div class="videoWrap" id="vwrap">'+
         (hasVid?'<div id="yt"></div>':'<div class="vph"><img class="vphlogo" alt="NCKU" src="'+LOGO+'"><div class="club">NCKU BASEBALL CLUB<small>Since 2015</small></div><div class="prep">BALLGAME PREPARING</div><button class="replaybtn" data-act="replays">觀看比賽重播</button><button class="sponsorbtn vphsp" data-act="sponsor">支持我們</button><img class="vphbird" id="vphbird" alt="" src="'+BIRD.run_1+'"></div>')+
+        (hasVid&&S.mode==='replay'?'<div class="rpseek" id="rpseek"></div><div class="rpflash" id="rpflash"></div>':'')+
         '<div class="dm" id="dm"></div><div class="pinmsg" id="pinmsg" hidden></div>'+
         (hasVid?'<button class="unmute" id="unmute" data-act="mute">開聲音</button>':'')+
         '<div class="vctl"><button data-act="dm">'+(S.dmOn?'彈幕 開':'彈幕 關')+'</button><button data-act="full">全螢幕</button></div>'+
@@ -1102,7 +1120,7 @@ function scorebar(){
 }
 function demobar(){
   if(S.mode==='replay'){ var R=S.replay||{}, m=R.meta||{};
-    return '<b>重播</b><span class="cap">'+esc(m.title||'比賽重播')+(m.date?'・'+esc(m.date):'')+(R.meta?'':'・載入中…')+'</span><span id="rpclock" class="muted"></span><button data-act="exitReplay">離開重播</button>'; }
+    return '<b>重播</b><span class="cap">'+esc(m.title||'比賽重播')+(m.date?'・'+esc(m.date):'')+(R.meta?'':'・載入中…')+'</span><span id="rpclock" class="muted"></span><button data-act="rpSeek" data-d="-10" title="倒退 10 秒（←）">« 10</button><button data-act="rpSeek" data-d="10" title="快轉 10 秒（→）">10 »</button><button data-act="rpSeek" data-d="60" title="快轉 1 分鐘（Shift+→）">1 分 »</button><button data-act="rpRate" id="rprate" title="播放速度">'+(S.rpRate||1)+'x</button><button data-act="exitReplay">離開重播</button>'; }
   if(S.mode!=='demo'||!S.demo) return '';
   var d=S.demo, fr=d.frames[d.i];
   return '<b>DEMO</b><span>'+(d.i+1)+'/'+d.frames.length+'</span><span class="cap">'+esc(fr.cap||'')+'</span>'+
@@ -1325,6 +1343,8 @@ document.addEventListener('click',function(ev){
   else if(a==='replays'&&false){ S.sheet={type:'replays'}; renderSheet(); fetch(fbBase()+'/replays.json').then(function(r){ return r.json(); }).then(function(o){ S.replayList=o||{}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }).catch(function(){ S.replayList={}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }); }
   else if(a==='openReplay'){ hideLanding(); var gid=t.dataset.gid; try{ var q=new URLSearchParams(location.search); q.set('replay',gid); q.delete('demo'); history.replaceState(null,'',location.pathname+'?'+q.toString()); QS=q; }catch(e){} startReplay(gid); }
   else if(a==='exitReplay'){ exitReplay(); }
+  else if(a==='rpSeek'){ rpSeek(+t.dataset.d); }
+  else if(a==='rpRate'){ var rs=[1,1.5,2]; S.rpRate=rs[(rs.indexOf(S.rpRate||1)+1)%rs.length]; try{ S.yt.setPlaybackRate(S.rpRate); }catch(e){} t.textContent=S.rpRate+'x'; rpFlash('速度 '+S.rpRate+'x', 0); }
   else if(a==='pdet'){ S.sheet={type:'pdet', ei:+t.dataset.ei}; renderSheet(); }
   else if(a==='bullpen'){ S.sheet={type:'bullpen'}; renderSheet(); }
   else if(a==='toggleOthers'){ S.othersOpen=!S.othersOpen; renderSide(); }

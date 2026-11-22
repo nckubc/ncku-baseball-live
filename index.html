@@ -415,7 +415,7 @@ function applyCmd(m){
 }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el) return; if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261121141252';
+var BUILD='20261122163759';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -484,7 +484,7 @@ function replayApply(now, rebuild){
     setGame({id:G.id, date:G.date, innings:G.innings, teams:replayTeams(G,n), updatedAt:G.updatedAt, events:ev.slice(0,n), state:replayState(G,n)}); }
   if(rebuild){
     S.log=[]; S.seen={}; S.bullpen={}; S.alert=null; R.li=0;
-    while(R.li<R.logs.length&&R.logs[R.li].t<=now){ receive(R.logs[R.li],false,true); R.li++; }
+    S.bulk=true; try{ while(R.li<R.logs.length&&R.logs[R.li].t<=now){ receive(R.logs[R.li],false,true); R.li++; } } finally{ S.bulk=false; }
     var box=document.getElementById('msgs'); if(box){ box.innerHTML=S.log.map(function(m){ return msgHTML(m,false); }).join(''); box.scrollTop=box.scrollHeight; }
     renderAlert(); renderSide();
   } else {
@@ -934,10 +934,11 @@ function connectRoom(){
   var key=roomKey(); if(!fbOn()||!key) return; if(S.room.es&&S.room.key===key) return;
   if(S.room.es){ try{ S.room.es.close(); }catch(e){} }
   S.room={state:'connecting', es:null, key:key}; S.bullpen={}; S.alert=null; renderAlert();
-  var es; try{ es=new EventSource(fbBase()+'/live/'+key+'/log.json?orderBy=%22%24key%22&limitToLast=200'); }catch(e){ S.room.state='err'; return; }
+  var es; try{ es=new EventSource(fbBase()+'/live/'+key+'/log.json?orderBy=%22%24key%22&limitToLast=5000'); }catch(e){ S.room.state='err'; return; }
   S.room.es=es;
   function take(d, quiet){ if(!d||typeof d!=='object') return;
-    if(d.path==='/'){ if(d.data&&typeof d.data==='object') Object.keys(d.data).sort().forEach(function(k){ var m=d.data[k]; if(m&&m.id) receive(m,false,quiet); }); }
+    if(d.path==='/'){ if(d.data&&typeof d.data==='object'){ S.bulk=true; try{ Object.keys(d.data).sort().forEach(function(k){ var m=d.data[k]; if(m&&m.id) receive(m,false,quiet); }); } finally{ S.bulk=false; }
+        var box=document.getElementById('msgs'); if(box){ box.innerHTML=S.log.slice(-200).map(function(m){ return msgHTML(m,false); }).join(''); box.scrollTop=box.scrollHeight; } renderSide(); } }
     else if(d.data&&d.data.id) receive(d.data,false,quiet); }
   var first=true;
   es.addEventListener('put',function(ev){ if(S.room.key!==key) return; S.room.state='on'; var d; try{ d=JSON.parse(ev.data); }catch(e){ return; } take(d, first&&d.path==='/'); first=false; });
@@ -960,8 +961,10 @@ function receive(m, mine, quiet){
   if(!m||!m.id||S.seen[m.id]) return; S.seen[m.id]=1;
   if(isCmd(m)){ applyCmd(m); return; }
   if(m.kind==='chat'&&typeof m.text!=='string') return; if(m.kind==='rocket'&&typeof m.to!=='string') return; if(m.kind==='support'&&!(m.tier>=1&&m.tier<=3)) return;
+  if(m.kind==='rocket') rkAdd(m);
   S.log.push(m); if(S.log.length>300) S.log=S.log.slice(-300);
   if(!fbOn() && m.kind!=='sys' && m.kind!=='bot') saveJSON(logKey(), S.log.filter(function(x){return (x.kind==='chat'||x.kind==='rocket')&&!x.bot;}));   /* 沒有雲端時才存本機；DEMO 模擬觀眾的訊息不存 */
+  if(S.bulk) return;   /* 一次載入大量舊訊息：最後再一起畫 */
   appendMsg(m, mine);
   if(quiet){ if(m.kind==='rocket') renderSide(); return; }   /* 剛進房間載入的舊訊息：只列出，不播特效 */
   if(m.kind==='support'){ scheduleThanks(m); return; }
@@ -1043,10 +1046,13 @@ function showBanner(t){
   var b=document.createElement('div'); b.className='banner'; b.textContent=t; v.appendChild(b);
   clearTimeout(S.banner); S.banner=setTimeout(function(){ b.remove(); }, 2600);
 }
+/* 火箭總數：每收到一個火箭就累加（不受聊天室只保留最近 300 則的限制） */
 function rocketCounts(){
+  if(S.rkFor===S.seen&&S.rk) return S.rk;
   var to={}, from={}; S.log.forEach(function(m){ if(m.kind==='rocket'){ to[m.to]=(to[m.to]||0)+1; from[m.from]=(from[m.from]||0)+1; } });
   return {to:to, from:from};
 }
+function rkAdd(m){ if(S.rkFor!==S.seen||!S.rk){ S.rk={to:{},from:{}}; S.rkFor=S.seen; } S.rk.to[m.to]=(S.rk.to[m.to]||0)+1; S.rk.from[m.from]=(S.rk.from[m.from]||0)+1; }
 
 /* ================= DEMO 模擬觀眾（只在 DEMO 出現，不會廣播） ================= */
 var BOT_NAMES=['阿翔','成大校友','小魚','棒球阿伯','學妹','奶茶','王媽媽','路人甲'];

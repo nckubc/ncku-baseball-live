@@ -85,6 +85,8 @@ input,select{font:inherit;}
 .rplist .prow{width:100%;}
 .vph .vphsp{margin-top:6px;display:inline-block !important;}
 .vphbird{position:absolute;left:70%;top:60%;width:40px;height:40px;image-rendering:pixelated;pointer-events:none;transform:scaleX(var(--dir,1));filter:drop-shadow(0 3px 3px #000a);}
+.pill.onl{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--muted);background:transparent;border:1px solid #ffffff22;}
+.pill.onl i{width:6px;height:6px;border-radius:50%;background:#3fbf6a;box-shadow:0 0 6px #3fbf6a;}
 .vctl{position:absolute;right:8px;bottom:8px;display:flex;gap:6px;z-index:6;}
 .vctl button{background:#000a;border:1px solid #fff3;border-radius:8px;height:34px;padding:0 10px;font-size:13px;}
 .unmute{position:absolute;left:8px;bottom:8px;z-index:6;background:var(--acc);border:0;border-radius:8px;height:34px;padding:0 12px;font-weight:700;font-size:13px;}
@@ -284,6 +286,7 @@ input,select{font:inherit;}
 
 /* ---------- 手機直拿／平板直拿 ---------- */
 @media (max-width: 899px){
+  .pill.onl .ot{display:none;}
   .main{display:flex;flex-direction:column;}
   .videoWrap{max-height:none;flex:none;}
   .mtabs{display:flex;border-bottom:1px solid var(--line);background:var(--panel);}
@@ -415,7 +418,7 @@ function applyCmd(m){
 }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el) return; if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261122163759';
+var BUILD='20261122170738';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -547,7 +550,7 @@ function renderLanding(){
       '</div><button class="lglink" data-act="landMain">‹ 返回</button></div>';
   } else {
     el.innerHTML='<div class="lgbox">'+head+
-      '<button class="lgbtn pri" data-act="goLive"><b>觀看直播</b><span>'+(liveOn?'<i class="dot"></i>直播進行中':'比分、聊天、火箭')+'</span></button>'+
+      '<button class="lgbtn pri" data-act="goLive"><b>觀看直播</b><span>'+(liveOn?'<i class="dot"></i>直播進行中':'比分、聊天、火箭')+(S.online>0?'・<em class="onl-n">'+S.online+'</em> 人在線上':'')+'</span></button>'+
       '<button class="lgbtn" data-act="goHistory"><b>歷次比賽</b><span>重播當時的影片、紀錄和聊天</span></button>'+
       '<button class="lglink" data-act="sponsor">支持我們</button></div>';
   }
@@ -1136,17 +1139,32 @@ function shell(){
       '</div>'+
     '</div>';
 }
+/* ===== 線上人數：每個開著頁面的裝置每 30 秒自動回報一次（觀眾不用做任何事），最近 75 秒內有回報的就算在線上 ===== */
+var PRES={cid:null, timer:null, ctimer:null, pruned:false};
+function presCid(){ if(PRES.cid) return PRES.cid; var c=''; try{ c=localStorage.getItem('live_cid')||''; }catch(e){} if(!/^[a-z0-9]{8,20}$/.test(c)){ c=(Date.now().toString(36)+Math.random().toString(36).slice(2,8)).slice(0,16); try{ localStorage.setItem('live_cid',c); }catch(e){} } return PRES.cid=c; }
+function presUrl(){ return fbBase()+'/presence/site'; }
+function presBeat(){ if(!fbOn()||document.hidden) return; fetch(presUrl()+'/'+presCid()+'.json',{method:'PUT',body:JSON.stringify({t:{'.sv':'timestamp'}})}).catch(function(){}); }
+function presCount(){ if(!fbOn()) return;
+  fetch(presUrl()+'.json?orderBy=%22t%22&startAt='+(Date.now()-75000)).then(function(r){ return r.ok?r.json():null; }).then(function(o){ if(!o||typeof o!=='object') return; var n=Object.keys(o).length; if(!document.hidden&&!o[presCid()]) n++; S.online=Math.max(1,n); renderOnline(); }).catch(function(){});
+  if(!PRES.pruned){ PRES.pruned=true; fetch(presUrl()+'.json?orderBy=%22t%22&endAt='+(Date.now()-3600000)+'&limitToFirst=50').then(function(r){ return r.ok?r.json():null; }).then(function(o){ Object.keys(o||{}).forEach(function(k){ fetch(presUrl()+'/'+k+'.json',{method:'DELETE'}).catch(function(){}); }); }).catch(function(){}); }
+}
+function presStart(){ if(PRES.timer||!fbOn()) return; presBeat(); setTimeout(presCount,1500); PRES.timer=setInterval(presBeat,30000); PRES.ctimer=setInterval(presCount,20000);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden){ presBeat(); setTimeout(presCount,1000); } });
+  window.addEventListener('pagehide',function(){ try{ fetch(presUrl()+'/'+presCid()+'.json',{method:'DELETE',keepalive:true}); }catch(e){} }); }
+function onlineHTML(){ return S.online>0?'<span class="pill onl" id="onl" title="現在開著這個頁面的人數"><i></i>'+S.online+'<span class="ot"> 人在線上</span></span>':''; }
+function renderOnline(){ var e=document.getElementById('onl'); if(e) e.innerHTML='<i></i>'+S.online+'<span class="ot"> 人在線上</span>'; else { var sb=document.getElementById('sb'); if(sb&&S.online>0) sb.innerHTML=scorebar(); }
+  var ns=document.querySelectorAll('.onl-n'); if(ns.length) ns.forEach(function(x){ x.textContent=S.online; }); else if(S.mode==='home'&&S.landView!=='history'&&document.getElementById('lgcontent')) renderLanding(); }
 function scorebar(){
   var x=situation();
   var gear='<span class="sp"></span><button class="sponsorbtn" data-act="sponsor">支持我們</button><button class="iconbtn homebtn" data-act="home" title="回首頁" aria-label="回首頁"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button><button class="iconbtn demobtn'+(S.mode==='demo'?' on':'')+'" data-act="demoToggle" title="'+(S.mode==='demo'?'離開 DEMO':'看 DEMO 示範')+'">'+(S.mode==='demo'?'離開':'DEMO')+'</button><button class="iconbtn" data-act="settings" title="設定" aria-label="設定"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>';
-  if(!x){ return '<b data-act="secret">成大棒球 線上觀賽</b><span class="muted">'+(S.mode==='live'?(S.live.err?'連線問題：'+esc(S.live.err):'連線中…'):'尚未連到比賽')+'</span>'+gear; }
+  if(!x){ return '<b data-act="secret">成大棒球 線上觀賽</b><span class="muted">'+(S.mode==='live'?(S.live.err?'連線問題：'+esc(S.live.err):'連線中…'):'尚未連到比賽')+'</span>'+onlineHTML()+gear; }
   var st=x.st, ours=x.names[x.ourSide], opp=x.names[x.ourSide==='home'?'away':'home'], oppSide=x.ourSide==='home'?'away':'home';
   var outs=''; for(var i=0;i<3;i++) outs+='<i'+(i<(st.outs||0)?' class="on"':'')+'></i>';
   var b=x.bases, dia='<span class="dia"><i class="b2'+(b.indexOf('2')>=0?' on':'')+'"></i><i class="b3'+(b.indexOf('3')>=0?' on':'')+'"></i><i class="b1'+(b.indexOf('1')>=0?' on':'')+'"></i></span>';
   var bl=x.batter?todayBat(x.batter.name):null, pt=x.pitcher?todayPit(x.pitcher.name):null;
   return '<span class="sbside'+(x.weBat?'':' def')+'">'+(x.weBat?'成大進攻':'成大守備')+'</span>'+
     '<span class="score" data-act="secret">'+esc(ours)+' '+x.score[x.ourSide]+' : '+x.score[oppSide]+' '+esc(opp)+'</span>'+
-    '<span class="pill">'+(st.inning||1)+(st.half==='top'?'上':'下')+'</span>'+gear+
+    '<span class="pill">'+(st.inning||1)+(st.half==='top'?'上':'下')+'</span>'+onlineHTML()+gear+
     '<span class="who">打者 <b>'+(x.batter?(dispNum(x.batter)?'#'+esc(dispNum(x.batter))+' ':'')+esc(x.batter.name):'—')+'</b>'+(bl?' 今日 '+bl.txt:'')+
     '　投手 <b>'+(x.pitcher?esc(x.pitcher.name):'—')+'</b>'+(pt?' '+pt.n+' 球':'')+
     (S.mode==='live'?'　<span class="muted">'+(S.live.err?'連線問題：'+esc(S.live.err):'即時 '+(S.live.t?new Date(S.live.t).toLocaleTimeString():''))+'</span>':'')+'</span>';
@@ -1418,7 +1436,7 @@ window.addEventListener('storage',function(e){ /* 備援：BroadcastChannel 不�
   if(bc||!S.cur||e.key!==logKey()) return; (loadJSON(logKey(),[])||[]).forEach(function(m){ receive(m,false); }); });
 
 /* ================= 啟動 ================= */
-loadPlayers(); loadSite(true).then(function(){ connectCfg(); if(wantReplay()) startReplay(wantReplay()); else if(wantSrc()==='demo') startDemo(); else if(wantDirect()) startLive(); else { render(); showLanding(); } setInterval(function(){ if(!document.hidden) loadSite(false); }, 60000); });
+loadPlayers(); loadSite(true).then(function(){ connectCfg(); presStart(); if(wantReplay()) startReplay(wantReplay()); else if(wantSrc()==='demo') startDemo(); else if(wantDirect()) startLive(); else { render(); showLanding(); } setInterval(function(){ if(!document.hidden) loadSite(false); }, 60000); });
 })();
 </script>
 </body>

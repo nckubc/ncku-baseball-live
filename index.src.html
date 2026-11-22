@@ -87,6 +87,13 @@ input,select{font:inherit;}
 .vphbird{position:absolute;left:70%;top:60%;width:40px;height:40px;image-rendering:pixelated;pointer-events:none;transform:scaleX(var(--dir,1));filter:drop-shadow(0 3px 3px #000a);}
 .pill.onl{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--muted);background:transparent;border:1px solid #ffffff22;}
 .pill.onl i{width:6px;height:6px;border-radius:50%;background:#3fbf6a;box-shadow:0 0 6px #3fbf6a;}
+.camlayer{position:absolute;inset:0;z-index:1;pointer-events:none;}
+.camv{position:absolute;inset:0;transition:opacity .15s;background:#000;}
+.camv iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+.camsel{position:absolute;left:8px;top:8px;z-index:6;display:flex;align-items:center;gap:4px;padding:3px 4px 3px 8px;border-radius:999px;background:#000a;font-size:11.5px;color:#ddd;}
+.camsel button{min-width:24px;height:22px;border-radius:999px;border:1px solid #ffffff33;background:transparent;color:#eee;font-weight:700;font-size:12px;cursor:pointer;}
+.camsel button.on{background:var(--acc);border-color:var(--acc);color:#fff;}
+.camsel button.pend{border-color:var(--gold);}
 .vctl{position:absolute;right:8px;bottom:8px;display:flex;gap:6px;z-index:6;}
 .vctl button{background:#000a;border:1px solid #fff3;border-radius:8px;height:34px;padding:0 10px;font-size:13px;}
 .unmute{position:absolute;left:8px;bottom:8px;z-index:6;background:var(--acc);border:0;border-radius:8px;height:34px;padding:0 12px;font-weight:700;font-size:13px;}
@@ -414,10 +421,11 @@ function birdReact(kind){ if(kind==='rocket') birdDo('startled',1200); else if(k
    臨時狀況解除（或 臨時狀況：解除）                    → 取消固定彈幕
    指令訊息不會出現在聊天室和彈幕。 */
 var TEAM_NAME='成大乙棒2015';
-function isCmd(m){ return m&&m.kind==='chat'&&m.from===TEAM_NAME&&/^\s*(牛棚狀態|臨時狀況)/.test(m.text||''); }
+function isCmd(m){ return m&&m.kind==='chat'&&m.from===TEAM_NAME&&(/^\s*(牛棚狀態|臨時狀況)/.test(m.text||'')||/^\.\d$/.test(m.text||'')); }
 function applyCmd(m){
   if(!S.bullpen) S.bullpen={};
   var t=String(m.text||'').trim();
+  if(/^\.\d$/.test(String(m.text||''))){ if(S.mode!=='replay'&&!S.bulk) camSwitch(+t.slice(1)-1, true); return; }
   if(/^臨時狀況\s*[：:]?\s*解除\s*$/.test(t)) S.alert=null;
   else if(/^臨時狀況\s*[：:]/.test(t)) S.alert=t.replace(/^臨時狀況\s*[：:]\s*/,'').trim()||null;
   else if(/^牛棚狀態/.test(t)){
@@ -1105,6 +1113,48 @@ function mountYT(){
     }catch(x){}
   });
 }
+/* ===== 多鏡頭：1 號是主鏡頭（唯一的聲音），其他鏡頭靜音、疊在上面；
+   新鏡頭在背後載入，真的開始播放才換上去，載入過的鏡頭留在背景繼續播，之後切換是瞬間的 ===== */
+var DEMO_CAMS=[{id:'mlg4EKX4UdY', start:37}];   /* DEMO 測試用的 2 號鏡頭 */
+function camList(){
+  if(S.mode==='replay') return [];
+  var L=[];
+  if(S.mode==='demo') L=DEMO_CAMS.slice();
+  else { var c=S.remote||{}, site=S.site||{}; ['cam2','cam3','cam4'].forEach(function(k){ var v=c[k]||site[k]; var id=v&&ytId(v); if(id) L.push({id:id}); }); }
+  return L;
+}
+function camReset(){ S.cam=0; S.camP={}; S.camPend=null; clearTimeout(S.camTO); camButtons(); }
+function camShow(i){
+  var lay=document.getElementById('camlayer'); if(!lay) return;
+  [].forEach.call(lay.children, function(el){ var on=(+el.dataset.i===i); el.style.opacity=on?'1':'0'; el.style.pointerEvents='none'; });
+  S.cam=i; S.camPend=null; clearTimeout(S.camTO); camButtons();
+}
+function camSwitch(i, fromTeam){
+  var L=camList(); if(i<0||i>L.length) return;
+  if(i===0){ camShow(0); if(fromTeam) rpFlash('鏡頭 1',0); return; }
+  var P=S.camP[i];
+  if(P&&P.playing){ camShow(i); rpFlash('鏡頭 '+(i+1),0); return; }
+  S.camPend=i; camButtons(); rpFlash('切換到鏡頭 '+(i+1)+'…',0);
+  clearTimeout(S.camTO); S.camTO=setTimeout(function(){ if(S.camPend===i){ S.camPend=null; camButtons(); rpFlash('鏡頭 '+(i+1)+' 目前無法連線',0); } }, 10000);
+  if(P) { try{ P.player.playVideo(); }catch(e){} return; }
+  var lay=document.getElementById('camlayer'); if(!lay) return;
+  var box=document.createElement('div'); box.className='camv'; box.dataset.i=i; box.style.opacity='0'; var inner=document.createElement('div'); inner.id='cam_'+i; box.appendChild(inner); lay.appendChild(box);
+  var c=L[i-1], vars={autoplay:1, mute:1, playsinline:1, controls:0, fs:0, rel:0, modestbranding:1, disablekb:1};
+  if(c.start) vars.start=c.start;
+  S.camP[i]={player:null, playing:false};
+  loadYTApi(function(){ try{
+    S.camP[i].player=new YT.Player('cam_'+i, {width:'100%', height:'100%', videoId:c.id, playerVars:vars, events:{
+      onReady:function(e){ try{ e.target.mute(); e.target.playVideo(); }catch(x){} },
+      onStateChange:function(e){ var Q=S.camP[i]; if(!Q) return; Q.playing=(e.data===1); if(e.data===1&&S.camPend===i){ camShow(i); rpFlash('鏡頭 '+(i+1),0); } }
+    }});
+  }catch(x){} });
+}
+function camButtons(){
+  var el=document.getElementById('camsel'); if(!el) return; var L=camList();
+  if(!L.length){ el.innerHTML=''; el.hidden=true; return; }
+  el.hidden=false; var h=''; for(var k=0;k<=L.length;k++) h+='<button data-act="cam" data-i="'+k+'" class="'+(S.cam===k?'on':'')+(S.camPend===k?' pend':'')+'">'+(k+1)+'</button>';
+  el.innerHTML='<span>鏡頭</span>'+h;
+}
 function toggleMute(){
   if(S.yt&&S.yt.isMuted){ try{ if(S.yt.isMuted()){ S.yt.unMute(); S.yt.setVolume(80); S.muted=false; } else { S.yt.mute(); S.muted=true; } }catch(x){} }
   else S.muted=!S.muted;
@@ -1125,10 +1175,10 @@ function pseudoFull(v){ S.pseudo=true; v.classList.add('pseudo'); toast('建議�
 function toast(t){ var d=document.createElement('div'); d.className='toast'; d.textContent=t; document.body.appendChild(d); setTimeout(function(){ d.remove(); }, 2200); }
 function render(){
   var app=document.getElementById('app');
-  if(!app.dataset.built){ app.innerHTML=shell(); app.dataset.built='1'; mountYT(); hideBoot(); var box=document.getElementById('msgs'); box.innerHTML=S.log.map(function(m){return msgHTML(m,false);}).join(''); box.scrollTop=box.scrollHeight; }
+  if(!app.dataset.built){ app.innerHTML=shell(); app.dataset.built='1'; mountYT(); camReset(); hideBoot(); var box=document.getElementById('msgs'); box.innerHTML=S.log.map(function(m){return msgHTML(m,false);}).join(''); box.scrollTop=box.scrollHeight; }
   else if(app.dataset.gid!==(S.cur?S.cur.id:'')){ var box2=document.getElementById('msgs'); box2.innerHTML=S.log.map(function(m){return msgHTML(m,false);}).join(''); box2.scrollTop=box2.scrollHeight; }
   app.dataset.gid=S.cur?S.cur.id:'';
-  document.getElementById('sb').innerHTML=scorebar(); renderAlert();
+  document.getElementById('sb').innerHTML=scorebar(); camButtons(); renderAlert();
   document.getElementById('demobar').innerHTML=demobar(); document.getElementById('demobar').style.display=(S.mode==='demo'||S.mode==='replay')?'':'none';
   document.querySelector('.main').dataset.tab=S.tab;
   document.querySelectorAll('.mtabs button').forEach(function(b){ b.classList.toggle('sel', b.dataset.v===S.tab); });
@@ -1140,9 +1190,11 @@ function shell(){
     '<div class="main" data-tab="'+S.tab+'">'+
       '<div class="videoWrap" id="vwrap">'+
         (hasVid?'<div id="yt"></div>':'<div class="vph"><img class="vphlogo" alt="NCKU" src="'+LOGO+'"><div class="club">NCKU BASEBALL CLUB<small>Since 2015</small></div><div class="prep">BALLGAME PREPARING</div><button class="replaybtn" data-act="replays">觀看比賽重播</button><button class="sponsorbtn vphsp" data-act="sponsor">支持我們</button><img class="vphbird" id="vphbird" alt="" src="'+BIRD.run_1+'"></div>')+
+        (hasVid?'<div class="camlayer" id="camlayer"></div>':'')+
         (hasVid&&S.mode==='replay'?'<div class="rpseek" id="rpseek"></div><div class="rpflash" id="rpflash"></div>':'')+
         '<div class="dm" id="dm"></div><div class="pinmsg" id="pinmsg" hidden></div>'+
         (hasVid?'<button class="unmute" id="unmute" data-act="mute">開聲音</button>':'')+
+        '<div class="camsel" id="camsel" hidden></div>'+
         '<div class="vctl"><button data-act="dm">'+(S.dmOn?'彈幕 開':'彈幕 關')+'</button><button data-act="full">全螢幕</button></div>'+
       '</div>'+
       '<div class="mtabs"><button data-act="tab" data-v="lineup">陣容</button><button data-act="tab" data-v="chat">聊天</button><button class="sponsorbtn" data-act="sponsor">支持我們</button></div>'+
@@ -1445,6 +1497,7 @@ document.addEventListener('click',function(ev){
   else if(a==='replays'&&false){ S.sheet={type:'replays'}; renderSheet(); fetch(fbBase()+'/replays.json').then(function(r){ return r.json(); }).then(function(o){ S.replayList=o||{}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }).catch(function(){ S.replayList={}; if(S.sheet&&S.sheet.type==='replays') renderSheet(); }); }
   else if(a==='openReplay'){ hideLanding(); var gid=t.dataset.gid; try{ var q=new URLSearchParams(location.search); q.set('replay',gid); q.delete('demo'); history.replaceState(null,'',location.pathname+'?'+q.toString()); QS=q; }catch(e){} startReplay(gid); }
   else if(a==='exitReplay'){ exitReplay(); }
+  else if(a==='cam'){ camSwitch(+t.dataset.i, false); }
   else if(a==='rpJump'){ rpJumpEi(t.dataset.ei); }
   else if(a==='rpSeek'){ rpSeek(+t.dataset.d); }
   else if(a==='rpRate'){ var rs=[1,1.5,2]; S.rpRate=rs[(rs.indexOf(S.rpRate||1)+1)%rs.length]; try{ S.yt.setPlaybackRate(S.rpRate); }catch(e){} t.textContent=S.rpRate+'x'; rpFlash('速度 '+S.rpRate+'x', 0); }

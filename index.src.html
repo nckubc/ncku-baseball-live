@@ -135,6 +135,19 @@ input,select{font:inherit;}
 /* ---------- 側欄（陣容） ---------- */
 .side{grid-area:side;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--panel);}
 .sideScroll{flex:1;min-height:0;overflow-y:auto;padding:8px;-webkit-overflow-scrolling:touch;}
+.seclink{background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+.seclink span{color:var(--acc-l);font-size:11.5px;}
+.plpa{margin:0 0 10px;padding:8px 10px;border-radius:10px;background:#1c1c20;}
+.plbat{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:6px;font-size:13.5px;}
+.plbat b{font-size:12px;padding:1px 8px;border-radius:999px;background:#2a2a30;}
+.plbat b.h,.plbat b.hr{background:var(--acc);color:#fff;}
+.plbat b.k{background:#3a1d1f;}
+.plbat b.bb{background:#1f2b3a;}
+.plps{display:flex;flex-direction:column;gap:4px;}
+.plp{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;text-align:left;background:#26262b;border:0;border-radius:8px;padding:6px 8px;color:inherit;font:inherit;font-size:13px;cursor:pointer;}
+.plp .pn{color:var(--muted);font-size:11.5px;text-align:center;}
+.plp .pc{color:var(--muted);font-size:11.5px;}
+.plp.fut{opacity:.32;}
 .sec{font-size:12px;color:var(--muted);margin:10px 4px 6px;display:flex;align-items:center;gap:6px;}
 .sec:first-child{margin-top:2px;}
 .prow{position:relative;display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:var(--panel2);border:1px solid transparent;border-radius:10px;padding:7px 9px;margin-bottom:5px;min-height:48px;overflow:hidden;}
@@ -817,9 +830,10 @@ function rpBack(e){
 function rpJumpEi(ei){
   var R=S.replay, e=R&&R.game&&R.game.events[+ei]; if(!e||!e.ts||!S.yt||!S.yt.seekTo) return;
   var sec=replayVideoSec(e.ts); if(sec==null) return;
-  var back=rpBack(e);
+  /* 打席結束的那一球照打者規則；一般好壞球 7 秒、界外 8 秒 */
+  var back=e.finalOutcome?rpBack(e):(e.pitchResult==='foul'?8:7);
   try{ S.yt.seekTo(Math.max(0,sec-back),true); S.yt.playVideo(); }catch(x){}
-  rpFlash((e.batterName||'')+' 這個打席', 0); setTimeout(replayTick, 300);
+  rpFlash((e.batterName||'')+(e.finalOutcome?' 這個打席':' 這一球'), 0); setTimeout(replayTick, 300);
 }
 function todayPit(name){
   var rs=S.model?S.model.today.filter(function(r){return r.pit===name;}):[], m=M(rs);
@@ -1192,7 +1206,7 @@ function fieldSVG(l){
     '<circle cx="50" cy="81.8" r="1.6" fill="#8a7458"/>'+dot+'</svg>';
 }
 function pitchDetailHTML(ei){
-  var g=S.cur, e=g&&g.events[ei]; if(!e) return '<h3>找不到這一球</h3>';
+  var g=(S.mode==='replay'&&S.replay&&S.replay.game)||S.cur, e=g&&g.events[ei]; if(!e) return '<h3>找不到這一球</h3>';
   var r=(S.model&&S.model.today||[]).find(function(x){ return x.ei===+ei; })||{};
   var n=0; for(var j=+ei;j>=0;j--){ var q=g.events[j]; if(q.type!=='pitch'&&q.type!=='battedball') continue; if(q.batterName!==e.batterName||q.inningBefore!==e.inningBefore||q.halfBefore!==e.halfBefore) break; n++; }
   var bat=e.batterName||'', pit=e.pitcherName||r.pit||'';
@@ -1214,8 +1228,43 @@ function pitchDetailHTML(ei){
   h+='<div class="pdgrid"><div class="pdzone">'+zoneGridHTML(e.zone)+'<small>進壘點（捕手視角）'+(e.zone!=null?'<br>'+esc(zoneText(e.zone)):'<br>未記錄')+'</small></div>'+
     (e.type==='battedball'?'<div class="pdzone">'+fieldSVG(e.landing)+'<small>落點'+(e.landing?'':'<br>未記錄')+'</small></div>':'')+'</div>';
   h+='<div class="kv pdkv">'+kv.map(function(x){ return '<div><div class="k">'+esc(x[0])+'</div><div class="v">'+esc(String(x[1]))+'</div></div>'; }).join('')+'</div>';
-  h+='<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
+  h+='<div class="row" style="justify-content:flex-end">'+(S.sheet&&S.sheet.back?'<button class="btn" data-act="plogBack">‹ 回投手紀錄</button>':'')+'<button class="btn" data-act="close">關閉</button></div>';
   return h;
+}
+/* ===== 投手逐球紀錄：先選投手，再看逐局、逐打席、逐球；重播時點一球會跳到那一球 ===== */
+function plogRecs(){ var R=S.replay; if(S.mode==='replay'&&R&&R.game){ if(!R.fullRecs){ try{ R.fullRecs=normGame(R.game).recs; }catch(e){ R.fullRecs=[]; } } return {recs:R.fullRecs, g:R.game, now:R.evN}; }
+  return {recs:(S.model&&S.model.today)||[], g:S.cur, now:Infinity}; }
+function plogPitchers(){ var P=plogRecs(), ours=[], opp=[], cnt={};
+  P.recs.forEach(function(r){ if(!r.pit) return; cnt[r.pit]=(cnt[r.pit]||0)+1; var L=r.ourPit?ours:opp; if(L.indexOf(r.pit)<0) L.push(r.pit); });
+  return {ours:ours, opp:opp, cnt:cnt}; }
+function plogPickHTML(){
+  var L=plogPitchers(), h='<h3>投手逐球紀錄</h3><div class="sub">選一位投手，看他逐局、逐打席、每一球'+(S.mode==='replay'?'；點一球會跳到那一球的影片':'')+'</div>';
+  function rows(arr){ return arr.map(function(n){ return '<button class="prow" data-act="plogP" data-name="'+esc(n)+'"><span class="ord">P</span><span class="num"></span><span class="mid">'+avatar(n)+'<span class="nm">'+esc(n)+'</span></span><span class="muted">'+(L.cnt[n]||0)+' 球 ›</span></button>'; }).join(''); }
+  if(!L.ours.length&&!L.opp.length) return h+'<div class="muted" style="padding:10px 0">還沒有投球紀錄</div><div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
+  if(L.ours.length) h+='<div class="sec">成大</div>'+rows(L.ours);
+  if(L.opp.length) h+='<div class="sec">對手</div>'+rows(L.opp);
+  return h+'<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" data-act="close">關閉</button></div>';
+}
+function plogFinal(e){ return FINAL_LBL[e.finalOutcome]||(e.finalOutcome==='一般出局'?((e.trajectory||'')+'出局'):e.finalOutcome); }
+function plogPitchLabel(e){
+  var t=e.type==='battedball'?'打進場內':((RES_LBL[e.pitchResult]||[e.pitchResult||'—'])[0]);
+  if(e.finalOutcome) t+=' → '+plogFinal(e);
+  return t; }
+function plogHTML(name){
+  var P=plogRecs(), g=P.g, ev=(g&&g.events)||[], rs=P.recs.filter(function(r){ return r.pit===name; });
+  var h='<h3>'+esc(name)+'・逐球紀錄</h3><div class="sub">'+(S.mode==='replay'?'點一球會跳到那一球的影片並顯示細節；還沒發生的比較淡':'點一球看進壘點、球種等細節')+'</div>';
+  if(!rs.length) h+='<div class="muted" style="padding:10px 0">還沒有投球紀錄</div>';
+  var lastInn='', pa=null, html='', n=0;
+  function closePA(){ if(!pa) return; html+='<div class="plpa"><div class="plbat">'+esc(pa.bat)+(pa.res?'<b class="'+pa.cls+'">'+esc(pa.res)+'</b>':'<span class="muted">打擊中</span>')+'</div><div class="plps">'+pa.chips+'</div></div>'; pa=null; }
+  rs.forEach(function(r){ var e=ev[r.ei]; if(!e) return; var inn=(e.inningBefore||'')+' 局'+(e.halfBefore==='top'?'上':'下');
+    if(inn!==lastInn){ closePA(); html+='<div class="sec">'+inn+'</div>'; lastInn=inn; }
+    if(!pa||pa.bat!==(e.batterName||'')||pa.done){ closePA(); pa={bat:e.batterName||'', chips:'', res:'', cls:'', done:false}; n=0; }
+    n++; var fut=r.ei>=P.now, cnt=(e.ballsBefore!=null?e.ballsBefore+'-'+e.strikesBefore:'');
+    pa.chips+='<button class="plp'+(fut?' fut':'')+'" data-act="plogPitch" data-ei="'+r.ei+'"><span class="pn">'+n+'</span><span class="pt">'+esc(plogPitchLabel(e))+'</span><span class="pc">'+(e.pitchType?esc(e.pitchType)+'・':'')+cnt+'</span></button>';
+    if(e.finalOutcome){ pa.res=plogFinal(e); pa.cls=outCls(e.finalOutcome); pa.done=true; }
+  });
+  closePA(); h+=html;
+  return h+'<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" data-act="plog">‹ 換投手</button><button class="btn" data-act="close">關閉</button></div>';
 }
 function lastPitchHTML(x){
   var ev=x.g.events, e=null, n=0;
@@ -1253,7 +1302,7 @@ function renderSide(){
   var pits=[]; S.model.today.forEach(function(r){ if(r.ourPit&&r.pit&&pits.indexOf(r.pit)<0) pits.push(r.pit); });
   var curP=teamPitcher(team); if(curP&&pits.indexOf(curP.name)<0) pits.push(curP.name);
   var bpN=Object.keys(S.bullpen||{}).length;
-  h+='<div class="sec">投手　<button class="tag bp'+(bpN?' on':'')+'" data-act="bullpen">牛棚'+(bpN?' '+bpN+' 人熱身中':'')+'</button></div>';
+  h+='<div class="sec"><button class="seclink" data-act="plog" title="看投手逐局、逐打席、逐球">投手 <span>逐球 ›</span></button><button class="tag bp'+(bpN?' on':'')+'" data-act="bullpen">牛棚'+(bpN?' '+bpN+' 人熱身中':'')+'</button></div>';
   pits.forEach(function(n){
     var t=todayPit(n), isCur=curP&&curP.name===n, pobj=(lu.concat(team.bench||[])).find(function(q){return q&&q.name===n;})||{name:n};
     h+='<button class="prow'+(isCur&&!x.weBat?' cur':'')+(isCur?'':' dim')+'" data-act="player" data-name="'+esc(n)+'">'+
@@ -1338,6 +1387,8 @@ function renderSheet(){
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="saveNick">確定</button></div>';
   } else if(sh.type==='replays'){
     h+=replaysSheetHTML();
+  } else if(sh.type==='plog'){
+    h+=sh.name?plogHTML(sh.name):plogPickHTML();
   } else if(sh.type==='pdet'){
     h+=pitchDetailHTML(sh.ei);
   } else if(sh.type==='bullpen'){
@@ -1398,6 +1449,10 @@ document.addEventListener('click',function(ev){
   else if(a==='rpSeek'){ rpSeek(+t.dataset.d); }
   else if(a==='rpRate'){ var rs=[1,1.5,2]; S.rpRate=rs[(rs.indexOf(S.rpRate||1)+1)%rs.length]; try{ S.yt.setPlaybackRate(S.rpRate); }catch(e){} t.textContent=S.rpRate+'x'; rpFlash('速度 '+S.rpRate+'x', 0); }
   else if(a==='pdet'){ S.sheet={type:'pdet', ei:+t.dataset.ei}; renderSheet(); }
+  else if(a==='plog'){ S.sheet={type:'plog'}; renderSheet(); }
+  else if(a==='plogP'){ S.sheet={type:'plog', name:t.dataset.name}; renderSheet(); }
+  else if(a==='plogPitch'){ var pn=S.sheet&&S.sheet.name; if(S.mode==='replay') rpJumpEi(t.dataset.ei); S.sheet={type:'pdet', ei:+t.dataset.ei, back:pn}; renderSheet(); }
+  else if(a==='plogBack'){ S.sheet={type:'plog', name:S.sheet&&S.sheet.back}; renderSheet(); }
   else if(a==='bullpen'){ S.sheet={type:'bullpen'}; renderSheet(); }
   else if(a==='toggleOthers'){ S.othersOpen=!S.othersOpen; renderSide(); }
   else if(a==='sponsor'){ S.sheet={type:'support'}; renderSheet(); }

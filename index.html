@@ -439,7 +439,7 @@ function applyCmd(m){
 }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el) return; if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261122175429';
+var BUILD='20261122180001';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -1133,6 +1133,7 @@ function camSwitch(i, fromTeam){
   var L=camList(); if(i<0||i>L.length) return;
   if(i===0){ camShow(0); if(fromTeam) rpFlash('鏡頭 1',0); return; }
   var P=S.camP[i];
+  if(P&&P.id!==L[i-1].id){ var old=document.querySelector('.camv[data-i="'+i+'"]'); if(old) old.remove(); delete S.camP[i]; P=null; }   /* 後台換了網址 */
   if(P&&P.playing){ camShow(i); rpFlash('鏡頭 '+(i+1),0); return; }
   S.camPend=i; camButtons(); rpFlash('切換到鏡頭 '+(i+1)+'…',0);
   clearTimeout(S.camTO); S.camTO=setTimeout(function(){ if(S.camPend===i){ S.camPend=null; camButtons(); rpFlash('鏡頭 '+(i+1)+' 目前無法連線',0); } }, 10000);
@@ -1141,7 +1142,7 @@ function camSwitch(i, fromTeam){
   var box=document.createElement('div'); box.className='camv'; box.dataset.i=i; box.style.opacity='0'; var inner=document.createElement('div'); inner.id='cam_'+i; box.appendChild(inner); lay.appendChild(box);
   var c=L[i-1], vars={autoplay:1, mute:1, playsinline:1, controls:0, fs:0, rel:0, modestbranding:1, disablekb:1};
   if(c.start) vars.start=c.start;
-  S.camP[i]={player:null, playing:false};
+  S.camP[i]={player:null, playing:false, id:c.id};
   loadYTApi(function(){ try{
     S.camP[i].player=new YT.Player('cam_'+i, {width:'100%', height:'100%', videoId:c.id, playerVars:vars, events:{
       onReady:function(e){ try{ e.target.mute(); e.target.playVideo(); }catch(x){} },
@@ -1151,6 +1152,7 @@ function camSwitch(i, fromTeam){
 }
 function camButtons(){
   var el=document.getElementById('camsel'); if(!el) return; var L=camList();
+  if(S.cam>L.length||(S.cam>0&&S.camP[S.cam]&&S.camP[S.cam].id!==L[S.cam-1].id)){ camShow(0); return; }   /* 後台拿掉或換掉目前的鏡頭：回到鏡頭 1 */
   if(!L.length){ el.innerHTML=''; el.hidden=true; return; }
   el.hidden=false; var h=''; for(var k=0;k<=L.length;k++) h+='<button data-act="cam" data-i="'+k+'" class="'+(S.cam===k?'on':'')+(S.camPend===k?' pend':'')+'">'+(k+1)+'</button>';
   el.innerHTML='<span>鏡頭</span>'+h;

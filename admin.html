@@ -52,6 +52,11 @@ code{background:#0b0b0d;padding:1px 5px;border-radius:4px;}
   <label for="yt">YouTube 網址（或 11 碼影片 ID）</label>
   <input id="yt" placeholder="https://www.youtube.com/live/xxxxxxxxxxx" autocomplete="off">
   <div class="prev" id="ytPrev"><div class="ph">貼上網址後這裡會顯示預覽</div></div>
+  <label for="cam2" style="margin-top:12px">鏡頭 2 網址（選填）</label>
+  <input id="cam2" placeholder="另一場同時進行的 YouTube 直播；沒有就留空" autocomplete="off">
+  <label for="cam3">鏡頭 3 網址（選填）</label>
+  <input id="cam3" placeholder="沒有就留空" autocomplete="off">
+  <div class="mut" style="margin-top:4px">有填的鏡頭，觀眾畫面左上角會出現「鏡頭 1 2 3」可以切換；聲音永遠是上面的主直播（鏡頭 1）。用「成大乙棒2015」在聊天室打 .1 .2 .3 可以讓所有人一起切換。</div>
   <div class="row" style="margin-top:10px">
     <button class="pri" data-save="yt">儲存直播網址</button>
     <button class="sm" id="ytClear">清空</button>
@@ -149,7 +154,7 @@ function msg(el, text, ok){ el.textContent=text; el.className='msg '+(ok?'ok':'e
 /* 預覽 */
 let tYt=0, tDemo=0;
 $('yt').addEventListener('input', ()=>{ clearTimeout(tYt); tYt=setTimeout(()=>embed($('ytPrev'), $('yt').value), 400); });
-$('ytClear').onclick = ()=>{ $('yt').value=''; embed($('ytPrev'),''); };
+$('ytClear').onclick = ()=>{ $('yt').value=''; $('cam2').value=''; $('cam3').value=''; embed($('ytPrev'),''); };
 function demoPreview(){ const st=parseTime($('demoStart').value), step=+$('demoStep').value||25;
   embed($('demoPrev'), $('demoYt').value, isNaN(st)?0:st);
   $('demoHint').textContent = isNaN(st) ? '起點格式不對（例：95、1:35、1:02:03）' : '起點 '+fmt(st)+'，20 球約到 '+fmt(st+584); }
@@ -244,7 +249,7 @@ onValue(cfgRef, s=>{
   const c=s.val()||{};
   $('upd').textContent = c.updatedAt ? new Date(c.updatedAt).toLocaleString('zh-TW') : '尚未設定';
   if(loaded) return; loaded=true;
-  $('yt').value=c.yt||''; $('demoYt').value=c.demoYt||'https://www.youtube.com/watch?v=jKq4Ii_NE64';
+  $('yt').value=c.yt||''; $('cam2').value=c.cam2||''; $('cam3').value=c.cam3||''; $('demoYt').value=c.demoYt||'https://www.youtube.com/watch?v=jKq4Ii_NE64';
   $('demoStart').value = fmt(c.demoStart!=null?c.demoStart:4333); $('demoStep').value = c.demoStep||25;
   embed($('ytPrev'), $('yt').value); demoPreview();
 });
@@ -255,7 +260,10 @@ document.querySelectorAll('[data-save]').forEach(b=>b.onclick=async ()=>{
   if(which==='yt'){
     const v=$('yt').value.trim();
     if(v && !ytId(v) && !ytChannel(v)) return msg(out,'看不懂這個網址，請貼 YouTube 影片／直播網址',false);
-    data={yt:v};
+    const c2=$('cam2').value.trim(), c3=$('cam3').value.trim();
+    if(c2 && !ytId(c2)) return msg(out,'鏡頭 2 的網址看不懂，請貼 YouTube 直播網址',false);
+    if(c3 && !ytId(c3)) return msg(out,'鏡頭 3 的網址看不懂，請貼 YouTube 直播網址',false);
+    data={yt:v, cam2:c2, cam3:c3};
   } else {
     const v=$('demoYt').value.trim(), st=parseTime($('demoStart').value), step=Number($('demoStep').value||25);
     if(v && !ytId(v)) return msg(out,'DEMO 影片網址看不懂',false);

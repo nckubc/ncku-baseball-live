@@ -240,6 +240,8 @@ input,select{font:inherit;}
 .bigfx{position:absolute;right:0;top:0;width:50%;height:50%;overflow:hidden;pointer-events:none;z-index:5;}
 .bigfx span{position:absolute;left:100%;white-space:nowrap;font-weight:800;font-size:14px;color:#ffd7d9;text-shadow:0 1px 3px #000,0 0 6px #b3262d;animation:bigfly 4s linear forwards;}
 @keyframes bigfly{from{transform:translateX(0);}to{transform:translateX(calc(-100% - 50vw));}}
+.bighint{flex:none;background:none;border:0;padding:0 2px;color:var(--acc-l);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.bighint .s{display:none;}
 .spintro{font-size:12.5px;line-height:1.7;color:var(--muted);background:var(--panel2);border-radius:10px;padding:8px 12px;margin:2px 0 10px;}
 .spnote{text-align:center;font-weight:800;font-size:15px;line-height:1.6;color:var(--text);margin:2px 0 8px;}
 .spdone{font-size:12.5px;color:var(--muted);text-align:center;margin:4px 0 12px;}
@@ -310,6 +312,7 @@ input,select{font:inherit;}
 
 /* ---------- 手機直拿／平板直拿 ---------- */
 @media (max-width: 899px){
+  .bighint .l{display:none;} .bighint .s{display:inline;}
   .pill.onl .ot{display:none;}
   .main{display:flex;flex-direction:column;}
   .videoWrap{max-height:none;flex:none;}
@@ -444,7 +447,7 @@ function applyCmd(m){
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el){ el=document.createElement('div'); el.id='pinmsg'; el.className='pinmsg'; el.hidden=true; document.body.appendChild(el); } else if(el.parentNode!==document.body) document.body.appendChild(el);   /* 臨時狀況：放在整個畫面最上層，蓋過所有東西 */
   if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261123185307';
+var BUILD='20261123185756';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -677,7 +680,7 @@ function spNext(){
   var m={id:uidm(), kind:'support', from:name, g:g, alum:!!sh.alum, tier:tier, t:Date.now()}; if(dept) m.dept=dept; if(sh.to) m.to=sh.to;
   publish(m);
   var gr=bigGrant();
-  S.sheet={type:'sponsor', done:true, granted:gr}; renderSheet();
+  S.sheet={type:'sponsor', done:true, granted:gr}; renderSheet(); var sbx=document.getElementById('sb'); if(sbx) sbx.innerHTML=scorebar();
 }
 /* 刷屏火箭：完成「支持我們」後才解鎖，每支裝置限量 500 隻；一般火箭只出現在聊天室和名單 */
 var BIG_MAX=500;
@@ -694,6 +697,7 @@ function bigFx(text){
   var sp=document.createElement('span'); sp.textContent=text; sp.style.top=(best*26+4)+'px'; L.appendChild(sp);
   setTimeout(function(){ sp.remove(); }, 4200);
 }
+function bigHintHTML(){ var o=loadJSON('rk_big',null); if(o&&o.granted) return ''; return '<button class="bighint" data-act="sponsor" title="完成「支持我們」就能讓火箭飛過直播畫面"><span class="l">點按右方「支持我們」獲得火箭彈幕權限</span><span class="s">支持解鎖火箭彈幕</span> ›</button>'; }
 function bigAllow(m){ if(S.bgFor!==S.seen||!S.bg){ S.bg={}; S.bgFor=S.seen; } var n=S.bg[m.from]||0; if(n>=BIG_MAX) return false; S.bg[m.from]=n+1; return true; }
 /* 球員介紹（players.json：背號、系級、一句話介紹） */
 var PLAYERS={}, PLAYER_ALIAS={'羅博強':'羅博强','王祥宇':'王祥予','張晉節':'張晉緁','李友佳':'李有佳','蔡文偉':'蔡文瑋','謝安倫':'謝安綸','葉承銨':'葉宸銨','許朝威':'許昭威','謝竺亭':'謝竺庭'};
@@ -1258,14 +1262,14 @@ function renderOnline(){ var e=document.getElementById('onl'); if(e) e.innerHTML
 function scorebar(){
   var x=situation();
   var gear='<span class="sp"></span><button class="sponsorbtn" data-act="sponsor">支持我們</button><button class="iconbtn homebtn" data-act="home" title="回首頁" aria-label="回首頁"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button><button class="iconbtn demobtn'+(S.mode==='demo'?' on':'')+'" data-act="demoToggle" title="'+(S.mode==='demo'?'離開 DEMO':'看 DEMO 示範')+'">'+(S.mode==='demo'?'離開':'DEMO')+'</button><button class="iconbtn" data-act="settings" title="設定" aria-label="設定"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>';
-  if(!x){ return '<b data-act="secret">成大棒球 線上觀賽</b><span class="muted">'+(S.mode==='live'?(S.live.err?'連線問題：'+esc(S.live.err):'連線中…'):'尚未連到比賽')+'</span>'+onlineHTML()+camSelHTML()+gear; }
+  if(!x){ return '<b data-act="secret">成大棒球 線上觀賽</b><span class="muted">'+(S.mode==='live'?(S.live.err?'連線問題：'+esc(S.live.err):'連線中…'):'尚未連到比賽')+'</span>'+onlineHTML()+camSelHTML()+bigHintHTML()+gear; }
   var st=x.st, ours=x.names[x.ourSide], opp=x.names[x.ourSide==='home'?'away':'home'], oppSide=x.ourSide==='home'?'away':'home';
   var outs=''; for(var i=0;i<3;i++) outs+='<i'+(i<(st.outs||0)?' class="on"':'')+'></i>';
   var b=x.bases, dia='<span class="dia"><i class="b2'+(b.indexOf('2')>=0?' on':'')+'"></i><i class="b3'+(b.indexOf('3')>=0?' on':'')+'"></i><i class="b1'+(b.indexOf('1')>=0?' on':'')+'"></i></span>';
   var bl=x.batter?todayBat(x.batter.name):null, pt=x.pitcher?todayPit(x.pitcher.name):null;
   return '<span class="sbside'+(x.weBat?'':' def')+'">'+(x.weBat?'成大進攻':'成大守備')+'</span>'+
     '<span class="score" data-act="secret">'+esc(ours)+' '+x.score[x.ourSide]+' : '+x.score[oppSide]+' '+esc(opp)+'</span>'+
-    '<span class="pill">'+(st.inning||1)+(st.half==='top'?'上':'下')+'</span>'+onlineHTML()+camSelHTML()+gear+
+    '<span class="pill">'+(st.inning||1)+(st.half==='top'?'上':'下')+'</span>'+onlineHTML()+camSelHTML()+bigHintHTML()+gear+
     '<span class="who">打者 <b>'+(x.batter?(dispNum(x.batter)?'#'+esc(dispNum(x.batter))+' ':'')+esc(x.batter.name):'—')+'</b>'+(bl?' 今日 '+bl.txt:'')+
     '　投手 <b>'+(x.pitcher?esc(x.pitcher.name):'—')+'</b>'+(pt?' '+pt.n+' 球':'')+
     (S.mode==='live'?'　<span class="muted">'+(S.live.err?'連線問題：'+esc(S.live.err):'即時 '+(S.live.t?new Date(S.live.t).toLocaleTimeString():''))+'</span>':'')+'</span>';

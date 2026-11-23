@@ -236,6 +236,10 @@ input,select{font:inherit;}
 .lgd{font-size:12px;color:var(--muted);white-space:nowrap;}
 .lgp{font-size:12.5px;color:var(--acc-l);white-space:nowrap;}
 .freenote{text-align:center;font-size:12px;color:var(--muted);margin-top:8px;}
+.bigleft{display:block;font-size:10.5px;font-weight:600;opacity:.85;margin-top:1px;}
+.bigfx{position:absolute;right:0;top:0;width:50%;height:50%;overflow:hidden;pointer-events:none;z-index:5;}
+.bigfx span{position:absolute;left:100%;white-space:nowrap;font-weight:800;font-size:14px;color:#ffd7d9;text-shadow:0 1px 3px #000,0 0 6px #b3262d;animation:bigfly 4s linear forwards;}
+@keyframes bigfly{from{transform:translateX(0);}to{transform:translateX(calc(-100% - 50vw));}}
 .spintro{font-size:12.5px;line-height:1.7;color:var(--muted);background:var(--panel2);border-radius:10px;padding:8px 12px;margin:2px 0 10px;}
 .spnote{text-align:center;font-weight:800;font-size:15px;line-height:1.6;color:var(--text);margin:2px 0 8px;}
 .spdone{font-size:12.5px;color:var(--muted);text-align:center;margin:4px 0 12px;}
@@ -440,7 +444,7 @@ function applyCmd(m){
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el){ el=document.createElement('div'); el.id='pinmsg'; el.className='pinmsg'; el.hidden=true; document.body.appendChild(el); } else if(el.parentNode!==document.body) document.body.appendChild(el);   /* 臨時狀況：放在整個畫面最上層，蓋過所有東西 */
   if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261123184142';
+var BUILD='20261123185307';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -672,8 +676,25 @@ function spNext(){
   if(fbOn()) fetch(fbBase()+'/support.json',{method:'POST',body:JSON.stringify(rec)}).catch(function(){});
   var m={id:uidm(), kind:'support', from:name, g:g, alum:!!sh.alum, tier:tier, t:Date.now()}; if(dept) m.dept=dept; if(sh.to) m.to=sh.to;
   publish(m);
-  S.sheet={type:'sponsor', done:true}; renderSheet();
+  var gr=bigGrant();
+  S.sheet={type:'sponsor', done:true, granted:gr}; renderSheet();
 }
+/* 刷屏火箭：完成「支持我們」後才解鎖，每支裝置限量 500 隻；一般火箭只出現在聊天室和名單 */
+var BIG_MAX=500;
+function bigLeft(){ var o=loadJSON('rk_big',null); return o&&o.left>0?o.left:0; }
+function bigGrant(){ var o=loadJSON('rk_big',null); if(o&&o.granted) return false; saveJSON('rk_big',{left:BIG_MAX, granted:Date.now()}); return true; }
+function bigUse(){ var o=loadJSON('rk_big',null); if(!o||!(o.left>0)) return false; o.left--; saveJSON('rk_big',o); return true; }
+/* 刷屏動畫只在影片右上角（寬、高都不超過一半） */
+var BIG_LANES=[];
+function bigFx(text){
+  var v=document.getElementById('vwrap'); if(!v) return; var L=document.getElementById('bigfx'); if(!L){ L=document.createElement('div'); L.id='bigfx'; L.className='bigfx'; v.appendChild(L); }
+  if(L.childElementCount>=8) return;
+  var h=L.clientHeight||120, n=Math.max(2,Math.min(6,Math.floor(h/26))), now=Date.now(), best=0, bt=Infinity;
+  for(var i=0;i<n;i++){ var t=BIG_LANES[i]||0; if(t<bt){ bt=t; best=i; } } BIG_LANES[best]=now+1400;
+  var sp=document.createElement('span'); sp.textContent=text; sp.style.top=(best*26+4)+'px'; L.appendChild(sp);
+  setTimeout(function(){ sp.remove(); }, 4200);
+}
+function bigAllow(m){ if(S.bgFor!==S.seen||!S.bg){ S.bg={}; S.bgFor=S.seen; } var n=S.bg[m.from]||0; if(n>=BIG_MAX) return false; S.bg[m.from]=n+1; return true; }
 /* 球員介紹（players.json：背號、系級、一句話介紹） */
 var PLAYERS={}, PLAYER_ALIAS={'羅博強':'羅博强','王祥宇':'王祥予','張晉節':'張晉緁','李友佳':'李有佳','蔡文偉':'蔡文瑋','謝安倫':'謝安綸','葉承銨':'葉宸銨','許朝威':'許昭威','謝竺亭':'謝竺庭'};
 function pinfo(n){ n=String(n||'').trim(); return PLAYERS[n]||PLAYERS[PLAYER_ALIAS[n]]||null; }
@@ -996,7 +1017,7 @@ function receive(m, mine, quiet){
   if(quiet){ if(m.kind==='rocket') renderSide(); return; }   /* 剛進房間載入的舊訊息：只列出，不播特效 */
   if(m.kind==='support'){ scheduleThanks(m); return; }
   birdReact(m.kind);
-  if(m.kind==='rocket'){ renderSide(); rocketFx(m.to, m.from); }   /* 火箭只在聊天室和名單上表現，不再蓋到影片上 */   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
+  if(m.kind==='rocket'){ renderSide(); rocketFx(m.to, m.from); if(m.big&&bigAllow(m)) bigFx(m.from+' 🚀 '+m.to); }   /* 一般火箭只在聊天室和名單；支持過的人的刷屏火箭才會蓋到影片上 */   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
   else if(m.kind==='chat'||m.kind==='bot'){ var tm=mentionsMe(m); fly(m.text, mine?'me':(tm?'tagme':'')); if(tm){ toast(m.from+' 提到你'); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(e){} } }
 }
 /* ===== 暱稱（選填）：沒填就用「匿名＋動物」，每台裝置固定一個 ===== */
@@ -1029,7 +1050,9 @@ function send(){
 }
 function sendRocket(to){
   if(!rkMineOK()) return;
-  publish({id:uidm(), kind:'rocket', from:myName(), to:to, t:Date.now()});
+  var m={id:uidm(), kind:'rocket', from:myName(), to:to, t:Date.now()};
+  if(bigUse()){ m.big=1; var left=bigLeft(); if(left<=20||left%50===0) toast('刷屏火箭剩 '+left+' 隻'); }
+  publish(m);
 }
 function msgHTML(m, mine){
   if(m.kind==='sys') return '<div class="msg sys">'+esc(m.text)+'</div>';
@@ -1423,7 +1446,7 @@ function renderSheet(){
     var pi=pinfo(sh.name); if(pi&&pi.hr) h=h.replace('</h3>','<span class="hrchip">本季 '+pi.hr+' 轟</span></h3>');
     if(pi&&(pi.dept||pi.school||pi.intro)) h+='<div class="pintro">'+((pi.dept||pi.school)?'<div class="dept">'+esc([pi.dept,pi.school].filter(Boolean).join(' · '))+'</div>':'')+(pi.intro?'<div class="intro">'+esc(pi.intro)+'</div>':'')+'</div>';
     if(!sh.view){
-      h+='<div class="bigbtns three"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button><button data-act="supportP" data-name="'+esc(sh.name)+'">支持乙棒</button></div>'+'<div class="freenote">🚀 火箭免費，不用錢，想刷幾排都可以！</div>';
+      h+='<div class="bigbtns three"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭'+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button><button data-act="supportP" data-name="'+esc(sh.name)+'">支持乙棒</button></div>'+'<div class="freenote">🚀 火箭免費，不用錢，想刷幾排都可以！</div>';
     } else {
       var st=(pinfo(sh.name)||{}).stats||null, meta=PLAYERS._stats||{};
       function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div'+(k==='全壘打'&&+o[k]>0?' class="hl"':'')+'><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }
@@ -1434,7 +1457,7 @@ function renderSheet(){
       var snap=''; if(st){ if(asP&&st.pit) snap=kvBlock(meta.pitTitle||'賽前投球', st.pit); else if(st.bat) snap=kvBlock(meta.batTitle||'賽前打擊', st.bat); else snap=kvBlock(meta.pitTitle||'賽前投球', st.pit); }
       h+=snap||'<div class="muted" style="margin-top:8px">賽前數據整理中</div>';
       h+='<p class="muted" style="font-size:12px;line-height:1.5">'+esc(meta.note||'數據統計至大專盃開賽前。賽事期間的數據可能影響比賽，暫不公開。')+'</p>'+
-        '<div class="bigbtns"><button data-act="pback">返回</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭</button></div>';
+        '<div class="bigbtns"><button data-act="pback">返回</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭'+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button></div>';
     }
     h+='<div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
   } else if(sh.type==='settings'){
@@ -1468,7 +1491,7 @@ function renderSheet(){
       '<div><span>帳號</span><span><b>'+esc(SPONSOR.acct)+'</b><button data-act="copyAcct">複製</button></span></div></div>'+
       (SPONSOR.qr?'<div class="spqr"><img alt="轉帳 QR Code" src="'+esc(SPONSOR.qr)+'"></div>':'<p class="muted" style="font-size:12.5px;line-height:1.6;margin:0 0 12px">按「複製」後打開你的銀行 App，選「轉帳」，銀行選中華郵政（700），貼上帳號即可。</p>')+
       '<div class="spnote">再麻煩您前往轉帳！<br>非常感謝您對成大乙棒的支持</div>'+
-      (sh.done?'<div class="spdone">後台已記錄您的支持～非常感謝您</div>':'')+
+      (sh.done?'<div class="spdone">後台已記錄您的支持～非常感謝您</div>'+(bigLeft()?'<div class="spdone">'+(sh.granted?'已解鎖':'您還有')+'「刷屏火箭」'+bigLeft()+' 隻：之後刷的火箭會飛過直播畫面</div>':''):'')+
       '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
   } else if(sh.type==='stats'){
     var cnt=rocketCounts(), tos=Object.keys(cnt.to).sort(function(a,b){return cnt.to[b]-cnt.to[a];}), froms=Object.keys(cnt.from).sort(function(a,b){return cnt.from[b]-cnt.from[a];});

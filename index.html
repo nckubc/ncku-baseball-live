@@ -434,7 +434,7 @@ function applyCmd(m){
   if(!S.bullpen) S.bullpen={};
   var t=String(m.text||'').trim();
   var rs=/^火箭狀態\s*[：:]?\s*([12])\s*$/.exec(t);
-  if(rs){ S.rkOff=(rs[1]==='2'); if(!S.bulk){ toast(S.rkOff?'火箭功能暫時關閉':'火箭功能已開啟'); if(S.sheet) renderSheet(); } return; }
+  if(rs){ S.rkOff=(rs[1]==='2'); if(!S.bulk){ pinNotice(S.rkOff?'火箭功能暫時關閉':'火箭功能已開啟'); if(S.sheet) renderSheet(); } return; }
   var dm=/^(\.{2,3})(\d)(\d{1,2})$/.exec(String(m.text||''));
   if(dm){ if(S.mode!=='replay') camDelayCmd(+dm[2]-1, +dm[3]*(dm[1].length===2?1:-1)); return; }
   if(/^\.\d$/.test(String(m.text||''))){ if(S.mode!=='replay'&&!S.bulk) camSwitch(+t.slice(1)-1, true); return; }
@@ -449,10 +449,12 @@ function applyCmd(m){
   }
   renderAlert(); renderSide();
 }
+/* 短暫通知（用臨時狀況的樣式，顯示 5 秒）；如果臨時狀況正在顯示就不蓋掉它 */
+function pinNotice(t){ if(S.alert) return; S.pinNote=t; S.pinUntil=Date.now()+5000; renderAlert(); clearTimeout(S.pinT); S.pinT=setTimeout(function(){ renderAlert(); }, 5050); }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el){ el=document.createElement('div'); el.id='pinmsg'; el.className='pinmsg'; el.hidden=true; document.body.appendChild(el); } else if(el.parentNode!==document.body) document.body.appendChild(el);   /* 臨時狀況：放在整個畫面最上層，蓋過所有東西 */
-  if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
+  if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else if(S.pinUntil>Date.now()){ el.textContent=S.pinNote; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261123191601';
+var BUILD='20261123192024';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }

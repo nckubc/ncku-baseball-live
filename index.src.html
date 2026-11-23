@@ -236,6 +236,7 @@ input,select{font:inherit;}
 .lgd{font-size:12px;color:var(--muted);white-space:nowrap;}
 .lgp{font-size:12.5px;color:var(--acc-l);white-space:nowrap;}
 .freenote{text-align:center;font-size:12px;color:var(--muted);margin-top:8px;}
+.rocket.off{opacity:.45;}
 .bigleft{display:block;font-size:10.5px;font-weight:600;opacity:.85;margin-top:1px;}
 .bigfx{position:absolute;right:0;top:0;width:50%;height:50%;overflow:hidden;pointer-events:none;z-index:5;}
 .bigfx span{position:absolute;left:100%;white-space:nowrap;font-weight:800;font-size:14px;color:#ffd7d9;text-shadow:0 1px 3px #000,0 0 6px #b3262d;animation:bigfly 4s linear forwards;}
@@ -428,10 +429,14 @@ function birdReact(kind){ if(kind==='rocket') birdDo('startled',1200); else if(k
    臨時狀況解除（或 臨時狀況：解除）                    → 取消固定彈幕
    指令訊息不會出現在聊天室和彈幕。 */
 var TEAM_NAME='成大乙棒2015';
-function isCmd(m){ return m&&m.kind==='chat'&&m.from===TEAM_NAME&&(/^\s*(牛棚狀態|臨時狀況)/.test(m.text||'')||/^\.\d$/.test(m.text||'')); }
+function isCmd(m){ return m&&m.kind==='chat'&&m.from===TEAM_NAME&&(/^\s*(牛棚狀態|臨時狀況|火箭狀態)/.test(m.text||'')||/^\.\d$/.test(m.text||'')||/^\.{2,3}\d\d{1,2}$/.test(m.text||'')); }
 function applyCmd(m){
   if(!S.bullpen) S.bullpen={};
   var t=String(m.text||'').trim();
+  var rs=/^火箭狀態\s*[：:]?\s*([12])\s*$/.exec(t);
+  if(rs){ S.rkOff=(rs[1]==='2'); if(!S.bulk){ toast(S.rkOff?'火箭功能暫時關閉':'火箭功能已開啟'); if(S.sheet) renderSheet(); } return; }
+  var dm=/^(\.{2,3})(\d)(\d{1,2})$/.exec(String(m.text||''));
+  if(dm){ if(S.mode!=='replay') camDelayCmd(+dm[2]-1, +dm[3]*(dm[1].length===2?1:-1)); return; }
   if(/^\.\d$/.test(String(m.text||''))){ if(S.mode!=='replay'&&!S.bulk) camSwitch(+t.slice(1)-1, true); return; }
   if(/^臨時狀況\s*[：:]?\s*解除\s*$/.test(t)) S.alert=null;
   else if(/^臨時狀況\s*[：:]/.test(t)) S.alert=t.replace(/^臨時狀況\s*[：:]\s*/,'').trim()||null;
@@ -1020,7 +1025,7 @@ function receive(m, mine, quiet){
   if(!m||!m.id||S.seen[m.id]) return; S.seen[m.id]=1;
   if(isCmd(m)){ applyCmd(m); return; }
   if(m.kind==='chat'&&typeof m.text!=='string') return; if(m.kind==='rocket'&&typeof m.to!=='string') return; if(m.kind==='support'&&!(m.tier>=1&&m.tier<=3)) return;
-  if(m.kind==='rocket'){ if(!rkAllow(m)) return; rkAdd(m); }
+  if(m.kind==='rocket'){ if(S.rkOff) return; if(!rkAllow(m)) return; rkAdd(m); }   /* 火箭狀態：2 期間的火箭不算 */
   S.log.push(m); if(S.log.length>300) S.log=S.log.slice(-300);
   if(!fbOn() && m.kind!=='sys' && m.kind!=='bot') saveJSON(logKey(), S.log.filter(function(x){return (x.kind==='chat'||x.kind==='rocket')&&!x.bot;}));   /* 沒有雲端時才存本機；DEMO 模擬觀眾的訊息不存 */
   if(S.bulk) return;   /* 一次載入大量舊訊息：最後再一起畫 */
@@ -1060,6 +1065,7 @@ function send(){
   inp.value=''; hideAt(); publish({id:uidm(), kind:'chat', from:myName(), text:t.slice(0,80), t:Date.now()});
 }
 function sendRocket(to){
+  if(S.rkOff){ toast('火箭功能暫時關閉'); return; }
   if(!rkMineOK()) return;
   var m={id:uidm(), kind:'rocket', from:myName(), to:to, t:Date.now()};
   if(bigUse()){ m.big=1; var left=bigLeft(); if(left<=20||left%50===0) toast('刷屏火箭剩 '+left+' 隻'); }
@@ -1167,7 +1173,30 @@ function camList(){
   else { var c=S.remote||{}, site=S.site||{}; ['cam2','cam3','cam4'].forEach(function(k){ var v=c[k]||site[k]; var id=v&&ytId(v); if(id) L.push({id:id}); }); }
   return L;
 }
-function camReset(){ S.cam=0; S.camP={}; S.camPend=null; clearTimeout(S.camTO); camButtons(); }
+/* ===== 鏡頭延遲校正（成大乙棒2015 指令）：..105＝鏡頭 1 暫停 5 秒（等別的鏡頭追上）；...105＝鏡頭 1 快轉 5 秒（只能抵銷之前暫停過的）。
+   每個鏡頭的延遲會累積；之後才進來的觀眾，播放器一開始就會往回退到同樣的延遲 ===== */
+function camDelayCmd(i, d){
+  if(!S.camDelay||S.cdFor!==S.seen){ S.camDelay={}; S.cdFor=S.seen; }   /* 換場比賽就重新計算 */
+  var cur=S.camDelay[i]||0, nxt=Math.max(0, Math.min(600, cur+d));
+  if(nxt===cur) return; S.camDelay[i]=nxt;
+  if(!S.bulk&&myName()===TEAM_NAME) rpFlash('鏡頭 '+(i+1)+(d>0?' 延後 ':' 提前 ')+Math.abs(nxt-cur)+' 秒（累計 '+nxt+' 秒）',0);
+  camDelaySync();
+}
+function camPlayerOf(i){ return i===0?S.yt:(S.camP&&S.camP[i]&&S.camP[i].player); }
+function camDelaySync(){
+  if(!S.camDelay||S.cdFor!==S.seen){ S.camDelay={}; S.cdFor=S.seen; } if(!S.camApplied) S.camApplied={};
+  var idx=[0].concat(Object.keys(S.camP||{}).map(Number));
+  idx.forEach(function(i){ var P=camPlayerOf(i); if(!P||!P.getPlayerState) return;
+    var st; try{ st=P.getPlayerState(); }catch(e){ return; } if(st!==1&&st!==2) return;
+    var want=S.camDelay[i]||0, had=S.camApplied[i];
+    if(had==null){ /* 剛開始播：直接退回累計的延遲 */ S.camApplied[i]=want; if(want>0){ try{ P.seekTo(Math.max(0,P.getCurrentTime()-want),true); }catch(e){} } return; }
+    var diff=want-had; if(!diff) return; S.camApplied[i]=want;
+    if(diff>0){ try{ P.pauseVideo(); }catch(e){} setTimeout(function(){ try{ P.playVideo(); }catch(e){} }, diff*1000); }
+    else { try{ P.seekTo(P.getCurrentTime()-diff,true); }catch(e){} }
+  });
+}
+setInterval(function(){ if(S.mode==='live'||S.mode==='demo') camDelaySync(); }, 1000);
+function camReset(){ S.camApplied={}; S.cam=0; S.camP={}; S.camPend=null; clearTimeout(S.camTO); camButtons(); }
 function camShow(i){
   var lay=document.getElementById('camlayer'); if(!lay) return;
   [].forEach.call(lay.children, function(el){ var on=(+el.dataset.i===i); el.style.opacity=on?'1':'0'; el.style.pointerEvents='none'; });
@@ -1457,7 +1486,7 @@ function renderSheet(){
     var pi=pinfo(sh.name); if(pi&&pi.hr) h=h.replace('</h3>','<span class="hrchip">本季 '+pi.hr+' 轟</span></h3>');
     if(pi&&(pi.dept||pi.school||pi.intro)) h+='<div class="pintro">'+((pi.dept||pi.school)?'<div class="dept">'+esc([pi.dept,pi.school].filter(Boolean).join(' · '))+'</div>':'')+(pi.intro?'<div class="intro">'+esc(pi.intro)+'</div>':'')+'</div>';
     if(!sh.view){
-      h+='<div class="bigbtns three"><button data-act="pstats">球員數據</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭'+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button><button data-act="supportP" data-name="'+esc(sh.name)+'">支持乙棒</button></div>'+'<div class="freenote">🚀 火箭免費，不用錢，想刷幾排都可以！</div>';
+      h+='<div class="bigbtns three"><button data-act="pstats">球員數據</button><button class="rocket'+(S.rkOff?' off':'')+'" data-act="rocket" data-name="'+esc(sh.name)+'">'+(S.rkOff?'火箭暫停中':'🚀 刷一排火箭')+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button><button data-act="supportP" data-name="'+esc(sh.name)+'">支持乙棒</button></div>'+'<div class="freenote">🚀 火箭免費，不用錢，想刷幾排都可以！</div>';
     } else {
       var st=(pinfo(sh.name)||{}).stats||null, meta=PLAYERS._stats||{};
       function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div'+(k==='全壘打'&&+o[k]>0?' class="hl"':'')+'><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }
@@ -1468,7 +1497,7 @@ function renderSheet(){
       var snap=''; if(st){ if(asP&&st.pit) snap=kvBlock(meta.pitTitle||'賽前投球', st.pit); else if(st.bat) snap=kvBlock(meta.batTitle||'賽前打擊', st.bat); else snap=kvBlock(meta.pitTitle||'賽前投球', st.pit); }
       h+=snap||'<div class="muted" style="margin-top:8px">賽前數據整理中</div>';
       h+='<p class="muted" style="font-size:12px;line-height:1.5">'+esc(meta.note||'數據統計至大專盃開賽前。賽事期間的數據可能影響比賽，暫不公開。')+'</p>'+
-        '<div class="bigbtns"><button data-act="pback">返回</button><button class="rocket" data-act="rocket" data-name="'+esc(sh.name)+'">🚀 刷一排火箭'+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button></div>';
+        '<div class="bigbtns"><button data-act="pback">返回</button><button class="rocket'+(S.rkOff?' off':'')+'" data-act="rocket" data-name="'+esc(sh.name)+'">'+(S.rkOff?'火箭暫停中':'🚀 刷一排火箭')+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button></div>';
     }
     h+='<div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
   } else if(sh.type==='settings'){

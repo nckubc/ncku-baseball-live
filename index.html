@@ -90,7 +90,7 @@ input,select{font:inherit;}
 .camlayer{position:absolute;inset:0;z-index:1;pointer-events:none;}
 .camv{position:absolute;inset:0;transition:opacity .15s;background:#000;}
 .camv iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
-.camsel{position:absolute;left:8px;top:8px;z-index:6;display:flex;align-items:center;gap:4px;padding:3px 4px 3px 8px;border-radius:999px;background:#000a;font-size:11.5px;color:#ddd;}
+.camsel{position:absolute;left:8px;bottom:50px;z-index:6;display:flex;align-items:center;gap:4px;padding:3px 4px 3px 8px;border-radius:999px;background:#000a;font-size:11.5px;color:#ddd;}
 .camsel button{min-width:24px;height:22px;border-radius:999px;border:1px solid #ffffff33;background:transparent;color:#eee;font-weight:700;font-size:12px;cursor:pointer;}
 .camsel button.on{background:var(--acc);border-color:var(--acc);color:#fff;}
 .camsel button.pend{border-color:var(--gold);}
@@ -439,7 +439,7 @@ function applyCmd(m){
 }
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el) return; if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261122180001';
+var BUILD='20261123183211';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -607,7 +607,8 @@ function autoRecord(){
   try{
     if(!REC_DONE[gid]&&S.yt.getPlayerState()===1){
       var vd=S.yt.getVideoData&&S.yt.getVideoData(), vid=vd&&vd.video_id, sec=S.yt.getCurrentTime();
-      if(vid&&sec>0){
+      var official=ytId(S.remote.yt||S.site.yt||'');   /* 只記後台設定的正式直播（鏡頭 1），不記 DEMO、測試或手動換的影片 */
+      if(vid&&sec>0&&official&&vid===official&&!QS.get('v')&&!S.cfg.ytTest){
         REC_DONE[gid]=1;
         var nm=function(sd){ return ((S.cur.teams||{})[sd]||{}).name||''; };
         fetch(fbBase()+'/live/'+g+'/rec.json',{method:'PUT',body:JSON.stringify({yt:vid, wall:Date.now(), sec:sec})}).catch(function(){});
@@ -986,7 +987,7 @@ function receive(m, mine, quiet){
   if(!m||!m.id||S.seen[m.id]) return; S.seen[m.id]=1;
   if(isCmd(m)){ applyCmd(m); return; }
   if(m.kind==='chat'&&typeof m.text!=='string') return; if(m.kind==='rocket'&&typeof m.to!=='string') return; if(m.kind==='support'&&!(m.tier>=1&&m.tier<=3)) return;
-  if(m.kind==='rocket') rkAdd(m);
+  if(m.kind==='rocket'){ if(!rkAllow(m)) return; rkAdd(m); }
   S.log.push(m); if(S.log.length>300) S.log=S.log.slice(-300);
   if(!fbOn() && m.kind!=='sys' && m.kind!=='bot') saveJSON(logKey(), S.log.filter(function(x){return (x.kind==='chat'||x.kind==='rocket')&&!x.bot;}));   /* 沒有雲端時才存本機；DEMO 模擬觀眾的訊息不存 */
   if(S.bulk) return;   /* 一次載入大量舊訊息：最後再一起畫 */
@@ -994,7 +995,7 @@ function receive(m, mine, quiet){
   if(quiet){ if(m.kind==='rocket') renderSide(); return; }   /* 剛進房間載入的舊訊息：只列出，不播特效 */
   if(m.kind==='support'){ scheduleThanks(m); return; }
   birdReact(m.kind);
-  if(m.kind==='rocket'){ renderSide(); rocketFx(m.to, m.from); fly(m.from+' 🚀 '+m.to, 'rk'); }   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
+  if(m.kind==='rocket'){ renderSide(); rocketFx(m.to, m.from); }   /* 火箭只在聊天室和名單上表現，不再蓋到影片上 */   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
   else if(m.kind==='chat'||m.kind==='bot'){ var tm=mentionsMe(m); fly(m.text, mine?'me':(tm?'tagme':'')); if(tm){ toast(m.from+' 提到你'); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(e){} } }
 }
 /* ===== 暱稱（選填）：沒填就用「匿名＋動物」，每台裝置固定一個 ===== */
@@ -1026,6 +1027,7 @@ function send(){
   inp.value=''; hideAt(); publish({id:uidm(), kind:'chat', from:myName(), text:t.slice(0,80), t:Date.now()});
 }
 function sendRocket(to){
+  if(!rkMineOK()) return;
   publish({id:uidm(), kind:'rocket', from:myName(), to:to, t:Date.now()});
 }
 function msgHTML(m, mine){
@@ -1059,12 +1061,12 @@ function fly(text, cls){
 function rocketFx(to, from){
   var rows=document.querySelectorAll('.prow[data-name="'+CSS.escape(to)+'"]');
   rows.forEach(function(row){
+    if(!row.offsetParent) return;   /* 沒在畫面上（例如手機切到別的分頁）就不畫 */
     row.classList.remove('glow'); void row.offsetWidth; row.classList.add('glow');
     var r=document.createElement('div'); r.className='rocketFly'; r.textContent='🚀🚀🚀🚀🚀'; row.appendChild(r);
     var p=document.createElement('div'); p.className='plus'; p.textContent='+1 🚀'; row.appendChild(p);
     setTimeout(function(){ r.remove(); p.remove(); }, 1700);
   });
-  showBanner('🚀 '+from+' 給 '+to+' 刷了一排火箭！');
 }
 function showBanner(t){
   var v=document.getElementById('vwrap'); if(!v) return; var old=v.querySelector('.banner'); if(old) old.remove();
@@ -1077,6 +1079,13 @@ function rocketCounts(){
   var to={}, from={}; S.log.forEach(function(m){ if(m.kind==='rocket'){ to[m.to]=(to[m.to]||0)+1; from[m.from]=(from[m.from]||0)+1; } });
   return {to:to, from:from};
 }
+/* 每個名字一分鐘最多 50 個火箭：送出端擋，接收端也照時間過濾（避免有人改程式狂刷） */
+var RK_MAX=50;
+function rkAllow(m){ if(S.rwFor!==S.seen||!S.rw){ S.rw={}; S.rwFor=S.seen; } var t=+m.t||Date.now(), L=(S.rw[m.from]||[]).filter(function(x){ return x>t-60000; });
+  if(L.length>=RK_MAX){ S.rw[m.from]=L; return false; } L.push(t); S.rw[m.from]=L; return true; }
+function rkMineOK(){ var L=[]; try{ L=JSON.parse(localStorage.getItem('rk_sent')||'[]'); }catch(e){} var now=Date.now(); L=L.filter(function(x){ return x>now-60000; });
+  if(L.length>=RK_MAX){ var wait=Math.ceil((L[0]+60000-now)/1000); toast('一分鐘最多刷 '+RK_MAX+' 個火箭，'+wait+' 秒後再刷'); return false; }
+  L.push(now); try{ localStorage.setItem('rk_sent', JSON.stringify(L)); }catch(e){} return true; }
 function rkAdd(m){ if(S.rkFor!==S.seen||!S.rk){ S.rk={to:{},from:{}}; S.rkFor=S.seen; } S.rk.to[m.to]=(S.rk.to[m.to]||0)+1; S.rk.from[m.from]=(S.rk.from[m.from]||0)+1; }
 
 /* ================= DEMO 模擬觀眾（只在 DEMO 出現，不會廣播） ================= */

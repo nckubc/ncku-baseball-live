@@ -465,8 +465,15 @@ function replayState(G, n){
   for(var j=n;j<ev.length;j++){ var e=ev[j]; if(e.outsBefore!=null&&e.inningBefore!=null){ st={inning:e.inningBefore, half:e.halfBefore, outs:e.outsBefore||0, balls:e.ballsBefore||0, strikes:e.strikesBefore||0, bases:e.basesBefore||{'1':null,'2':null,'3':null}}; break; } }
   if(!st) st=JSON.parse(JSON.stringify(G.state||{}));
   var sc={home:[],away:[]};
-  for(var k=0;k<n;k++){ var q=ev[k]; if(!q.runsThisPlay||!q.inningBefore) continue; var sd=q.halfBefore==='top'?'away':'home'; while(sc[sd].length<q.inningBefore) sc[sd].push(0); sc[sd][q.inningBefore-1]+=+q.runsThisPlay; }
+  /* 每一筆事件推算得分：打擊得分、暴投／捕逸／盜壘回本壘、滿壘保送觸身 */
+  function runsOf(q){ if(+q.runsThisPlay>0) return +q.runsThisPlay; var adv=q.adv; if(adv&&typeof adv==='object'){ var v=Array.isArray(adv)?adv:Object.keys(adv).map(function(k){ return adv[k]; }); var c=v.filter(function(x){ return x==='score'; }).length; if(c) return c; }
+    if(q.type==='steal'&&String(q.from)==='3'&&q.result==='成功') return 1;
+    if(q.finalOutcome==='BB'||q.finalOutcome==='HBP'){ var b=q.basesBefore||{}; if(b[1]&&b[2]&&b[3]||b['1']&&b['2']&&b['3']) return 1; } return 0; }
+  for(var k=0;k<n;k++){ var q=ev[k]; if(!q.inningBefore) continue; var r=runsOf(q); if(!r) continue; var sd=q.halfBefore==='top'?'away':'home'; while(sc[sd].length<q.inningBefore) sc[sd].push(0); sc[sd][q.inningBefore-1]+=r; }
   ['home','away'].forEach(function(sd){ var need=(st.inning||1)-(sd==='home'&&st.half==='top'?1:0); while(sc[sd].length<need) sc[sd].push(0); });
+  /* 已經打完的半局直接用紀錄系統的最終比分（推算可能漏掉少數情況）；進行中的半局用推算、但不超過最終比分 */
+  var fin=(G.state&&G.state.score)||{};
+  ['home','away'].forEach(function(sd){ var F=fin[sd]||[]; sc[sd]=sc[sd].map(function(v,i){ var inn=i+1, done=inn<(st.inning||1)||(inn===(st.inning||1)&&sd==='away'&&st.half==='bottom'); var f=F[i]; if(f==null) return v; return done?+f:Math.min(v,+f); }); });
   if(n>=ev.length&&G.state&&G.state.score) sc=G.state.score;
   st.score=sc; return st;
 }

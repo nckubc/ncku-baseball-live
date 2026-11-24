@@ -454,7 +454,7 @@ function pinNotice(t){ if(S.alert) return; S.pinNote=t; S.pinUntil=Date.now()+50
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el){ el=document.createElement('div'); el.id='pinmsg'; el.className='pinmsg'; el.hidden=true; document.body.appendChild(el); } else if(el.parentNode!==document.body) document.body.appendChild(el);   /* 臨時狀況：放在整個畫面最上層，蓋過所有東西 */
   if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else if(S.pinUntil>Date.now()){ el.textContent=S.pinNote; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261124173807';
+var BUILD='20261124173925';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -886,14 +886,14 @@ function rpBack(e){
   if(!errs&&e.finalOutcome==='ROE') errs=1;
   return 10+extra+errs*10;
 }
-/* 前一個打席比較複雜（壘上有人跑壘、盜壘、牽制等）時，紀錄員要多花時間記，這個打席的紀錄會晚 5 秒；前一打席有打點再晚 5 秒 */
+/* 前一個打席比較複雜（壘上有人跑壘、盜壘、牽制等）時，紀錄員要多花時間記，這個打席的紀錄會晚 5 秒；前一打席有打點再晚 10 秒 */
 function rpPrevLag(ev, ei){
   var j=ei-1; while(j>=0&&!ev[j].finalOutcome) j--;   /* j＝上一個打席的結束 */
   var start=j+1, k=ei; while(k>start&&!(ev[k-1].finalOutcome)) k--;
   var p=j>=0?ev[j]:null, busy=false, rbi=false;
   for(var i=start;i<ei;i++){ var t=ev[i].type; if(t==='steal'||t==='pickoff') busy=true; if(t==='steal'&&String(ev[i].from)==='3'&&ev[i].result==='成功') rbi=true; }
   if(p){ var b=p.basesBefore||{}; if(b[1]||b[2]||b[3]||b['1']||b['2']||b['3']) busy=true; if(+p.rbi>0||+p.runsThisPlay>0) rbi=true; }
-  if(rbi) busy=true; return (busy?5:0)+(rbi?5:0);
+  if(rbi) busy=true; return (busy?5:0)+(rbi?10:0);
 }
 function rpJumpEi(ei){
   var R=S.replay, e=R&&R.game&&R.game.events[+ei]; if(!e||!e.ts||!S.yt||!S.yt.seekTo) return;

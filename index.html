@@ -454,7 +454,7 @@ function pinNotice(t){ if(S.alert) return; S.pinNote=t; S.pinUntil=Date.now()+50
 function renderAlert(){ var el=document.getElementById('pinmsg'); if(!el){ el=document.createElement('div'); el.id='pinmsg'; el.className='pinmsg'; el.hidden=true; document.body.appendChild(el); } else if(el.parentNode!==document.body) document.body.appendChild(el);   /* 臨時狀況：放在整個畫面最上層，蓋過所有東西 */
   if(S.alert){ el.textContent='臨時狀況：'+S.alert; el.hidden=false; } else if(S.pinUntil>Date.now()){ el.textContent=S.pinNote; el.hidden=false; } else { el.hidden=true; el.textContent=''; } }
 /* 自動更新：加到主畫面的 App 不會自己重新整理；開啟或切回來時檢查網站有沒有新版，有就重新載入 */
-var BUILD='20261124173925';
+var BUILD='20261124210832';
 function checkUpdate(){ if(BUILD.indexOf('__')===0) return;
   fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
     var m=t.match(/var BUILD='([0-9]+)'/); if(m&&m[1]!==BUILD){ var q=new URLSearchParams(location.search); q.set('b',m[1]); location.replace(location.pathname+'?'+q.toString()+location.hash); }
@@ -1026,7 +1026,7 @@ function connectRoom(){
   S.room.es=es;
   function take(d, quiet){ if(!d||typeof d!=='object') return;
     if(d.path==='/'){ if(d.data&&typeof d.data==='object'){ S.bulk=true; try{ Object.keys(d.data).sort().forEach(function(k){ var m=d.data[k]; if(m&&m.id) receive(m,false,quiet); }); } finally{ S.bulk=false; }
-        var box=document.getElementById('msgs'); if(box){ box.innerHTML=S.log.slice(-200).map(function(m){ return msgHTML(m,false); }).join(''); box.scrollTop=box.scrollHeight; } renderSide(); } }
+        var box=document.getElementById('msgs'); if(box){ box.innerHTML=S.log.filter(function(x){return x.kind!=='rocket';}).slice(-200).map(function(m){ return msgHTML(m,false); }).join(''); box.scrollTop=box.scrollHeight; } renderSide(); } }
     else if(d.data&&d.data.id) receive(d.data,false,quiet); }
   var first=true;
   es.addEventListener('put',function(ev){ if(S.room.key!==key) return; S.room.state='on'; var d; try{ d=JSON.parse(ev.data); }catch(e){ return; } take(d, first&&d.path==='/'); first=false; });
@@ -1045,12 +1045,14 @@ function publish(m){
   if(bc) bc.postMessage({gid:S.cur?S.cur.id:'', m:m});
 }
 if(bc) bc.onmessage=function(ev){ var d=ev.data||{}; if(!S.cur||d.gid!==S.cur.id) return; receive(d.m,false); };
+/* 聊天留最後 300 則、火箭另外留最後 2000 隻，火箭再多也不會把聊天擠掉 */
+function trimLog(){ var nc=0, nr=0, keep=[]; for(var i=S.log.length-1;i>=0;i--){ var x=S.log[i]; if(x.kind==='rocket'){ if(++nr<=2000) keep.push(x); } else if(++nc<=300) keep.push(x); } if(keep.length<S.log.length) S.log=keep.reverse(); }
 function receive(m, mine, quiet){
   if(!m||!m.id||S.seen[m.id]) return; S.seen[m.id]=1;
   if(isCmd(m)){ applyCmd(m); return; }
   if(m.kind==='chat'&&typeof m.text!=='string') return; if(m.kind==='rocket'&&typeof m.to!=='string') return; if(m.kind==='support'&&!(m.tier>=1&&m.tier<=3)) return;
   if(m.kind==='rocket'){ if(S.rkOff) return; if(!rkAllow(m)) return; rkAdd(m); }   /* 火箭狀態：2 期間的火箭不算 */
-  S.log.push(m); if(S.log.length>300) S.log=S.log.slice(-300);
+  S.log.push(m); trimLog();
   if(!fbOn() && m.kind!=='sys' && m.kind!=='bot') saveJSON(logKey(), S.log.filter(function(x){return (x.kind==='chat'||x.kind==='rocket')&&!x.bot;}));   /* 沒有雲端時才存本機；DEMO 模擬觀眾的訊息不存 */
   if(S.bulk) return;   /* 一次載入大量舊訊息：最後再一起畫 */
   appendMsg(m, mine);
@@ -1097,7 +1099,7 @@ function sendRocket(to){
 }
 function msgHTML(m, mine){
   if(m.kind==='sys') return '<div class="msg sys">'+esc(m.text)+'</div>';
-  if(m.kind==='rocket') return '<div class="msg rk">🚀 '+esc(m.from)+' 給 '+esc(m.to)+' 刷了一排火箭！</div>';
+  if(m.kind==='rocket') return '';   /* 火箭不進聊天室，只播動畫、算進名單 */
   if(m.kind==='support') return '<div class="msg sp">'+esc(thankText(m))+'</div>';
   return '<div class="msg'+(m.from===myName()?' me':'')+(mentionsMe(m)?' tagme':'')+(m.kind==='bot'?' bot':'')+'"><span class="n" data-act="mention" data-name="'+esc(m.from)+'" title="點名字可以 @ 他">'+esc(m.from)+'</span>'+richText(m.text)+'</div>';
 }

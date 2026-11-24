@@ -464,7 +464,13 @@ setTimeout(checkUpdate, 4000); setInterval(checkUpdate, 10*60*1000);
 /* ===== 比賽重播：影片用 YouTube，其餘（比分、打序、剛剛這球、聊天、彈幕、火箭、支持、牛棚、臨時狀況）
    全部依時間從資料庫重現。/replays/<gameId> = {title, date, yt, t0(影片 0 秒對應的時間 ms), adj(微調秒)} 由後台設定。 ===== */
 function wantReplay(){ return QS.get('replay')||''; }
-function replayT0(){ var m=S.replay&&S.replay.meta; return m?(+m.t0||0)-(+m.adj||0)*1000:0; }   /* adj：紀錄太早出現就填正數（秒） */
+/* 直播中途斷線、重開成另一支影片時：segs=[{yt, t0, from}]，依時間自動換到對應的那一段 */
+function rpSegs(){ var m=S.replay&&S.replay.meta; return (m&&m.segs&&m.segs.length)?m.segs:null; }
+function rpSeg(){ var L=rpSegs(); return L?L[Math.min(S.replay.seg||0, L.length-1)]:null; }
+function rpSegFor(ts){ var L=rpSegs(), k=0; if(!L) return 0; for(var i=0;i<L.length;i++) if(ts>=(+L[i].from||0)) k=i; return k; }
+function rpUseSeg(k, sec){ var R=S.replay, L=rpSegs(); if(!L||!L[k]) return; R.seg=k; R.lastNow=null; R.segHold=Date.now()+1500;
+  try{ S.yt.loadVideoById({videoId:L[k].yt, startSeconds:Math.max(0,sec)}); }catch(e){} rpFlash('第 '+(k+1)+' 段影片', 0); }
+function replayT0(){ var m=S.replay&&S.replay.meta; if(!m) return 0; var sg=rpSeg(); return (sg?+sg.t0:(+m.t0||0))-(+m.adj||0)*1000; }   /* adj：紀錄太早出現就填正數（秒） */
 function replayVideoSec(ts){ var m=S.replay&&S.replay.meta; if(!m||!ts) return null; return (ts-replayT0())/1000; }
 function replayNow(){ var cur=null; try{ if(S.yt&&S.yt.getCurrentTime&&S.yt.getPlayerState&&S.yt.getPlayerState()!==-1) cur=S.yt.getCurrentTime(); }catch(e){} return cur==null?null:replayT0()+cur*1000; }
 function replayState(G, n){
@@ -502,7 +508,7 @@ function startReplay(gid){
     if(!a[0]||!a[0].yt||!a[1]){ toast('這場還沒有設定重播'); exitReplay(); return; }
     var R=S.replay; R.meta=a[0]; R.game=a[1]; R.fullRecs=null;
     R.logs=Object.keys(a[2]||{}).map(function(k){ return a[2][k]; }).filter(function(m){ return m&&m.id&&m.t; }).sort(function(x,y){ return x.t-y.t; });
-    var fp=R.game.events.find(function(e){ return (e.type==='pitch'||e.type==='battedball')&&e.ts; }); R.firstTs=fp?fp.ts:(R.game.events[0]||{}).ts||0;
+    var fp=R.game.events.find(function(e){ return (e.type==='pitch'||e.type==='battedball')&&e.ts; }); R.firstTs=fp?fp.ts:(R.game.events[0]||{}).ts||0; R.seg=rpSegFor(R.firstTs-15000);
     var app2=document.getElementById('app'); app2.dataset.built=''; S.yt=null;
     replayApply(R.firstTs-1, true); S.timer=setInterval(function(){ replayTick(); }, 500);
   }).catch(function(){ toast('重播載入失敗'); exitReplay(); });
@@ -554,7 +560,11 @@ function rpToggle(){ try{ if(S.yt.getPlayerState()===1){ S.yt.pauseVideo(); rpFl
 })();
 function replayTick(){
   var R=S.replay; if(S.mode!=='replay'||!R||!R.game) return;
+  if(R.segHold&&Date.now()<R.segHold) return;
   var now=replayNow(); if(now==null) return;
+  var L=rpSegs(), k=R.seg||0; var ended=false; try{ ended=S.yt.getPlayerState()===0; }catch(e){}
+  if(L&&k<L.length-1&&ended){ rpUseSeg(k+1, Math.max(0,((R.lastNow||now)-(+L[k+1].t0)+(+S.replay.meta.adj||0)*1000)/1000)); return; }   /* 前一段播完就接下一段 */
+  if(L&&k<L.length-1&&now>=+L[k+1].from){ rpUseSeg(k+1, (now-(+L[k+1].t0)+(+S.replay.meta.adj||0)*1000)/1000); return; }
   if(S.rpRate&&S.rpRate!==1){ try{ if(S.yt.getPlaybackRate()!==S.rpRate) S.yt.setPlaybackRate(S.rpRate); }catch(e){} }
   var jump=R.lastNow==null||now<R.lastNow-1500||now-R.lastNow>8000;   /* 往回拖或大幅跳轉：重建狀態，不重播特效 */
   replayApply(now, jump);
@@ -770,7 +780,7 @@ function startAuto(){
   }, 500);
   render();
 }
-function curYt(){ if(S.mode==='replay'&&S.replay&&S.replay.meta) return S.replay.meta.yt||''; return demoVid()||QS.get('v')||S.cfg.ytTest||S.remote.yt||S.site.yt||''; }
+function curYt(){ if(S.mode==='replay'&&S.replay&&S.replay.meta){ var sg=rpSeg(); return (sg&&sg.yt)||S.replay.meta.yt||''; } return demoVid()||QS.get('v')||S.cfg.ytTest||S.remote.yt||S.site.yt||''; }
 function reloadVideoIf(old){ if(curYt()!==old){ var app=document.getElementById('app'); app.dataset.built=''; S.yt=null; render(); } }
 function demoSeek(){ if(S.autoTimer||!demoVid()||!S.yt||!S.yt.seekTo) return; try{ var t=demoSeekT(); if(Math.abs((S.yt.getCurrentTime()||0)-t)>2) S.yt.seekTo(t,true); }catch(e){} }
 /* 即時讀 /config（EventSource 串流，任何人可讀；只有球隊帳號能在 admin.html 寫入） */
@@ -869,19 +879,31 @@ function paChips(name, tb){
   if(!tb.pas.length) return '';
   return '<span class="pas">'+tb.pas.map(function(r){return '<span class="pa '+outCls(r.out)+'" data-act="pdet" data-ei="'+r.ei+'">'+esc(outLabel(r))+'</span>';}).join('')+'</span>';
 }
-/* 回推秒數：基本 15 秒；安打每多一個壘包 +6（二安 21、三安 27、全壘打 33）；每個失誤 +10 */
+/* 回推秒數：有事件（打席結束）基本 10 秒；安打每多一個壘包 +6（二安 16、三安 22、全壘打 28）；每個失誤 +10。沒有事件的一般球 5 秒 */
 function rpBack(e){
   var extra={'2B':6,'3B':12,'HR':18}[e.finalOutcome]||0;
   var errs=(e.errorDetails&&e.errorDetails.length)||((e.chain||[]).filter(function(c){ return c&&c.error; }).length);
   if(!errs&&e.finalOutcome==='ROE') errs=1;
-  return 15+extra+errs*10;
+  return 10+extra+errs*10;
+}
+/* 前一個打席比較複雜（壘上有人跑壘、盜壘、牽制等）時，紀錄員要多花時間記，這個打席的紀錄會晚 5 秒；前一打席有打點再晚 10 秒 */
+function rpPrevLag(ev, ei){
+  var j=ei-1; while(j>=0&&!ev[j].finalOutcome) j--;   /* j＝上一個打席的結束 */
+  var start=j+1, k=ei; while(k>start&&!(ev[k-1].finalOutcome)) k--;
+  var p=j>=0?ev[j]:null, busy=false, rbi=false;
+  for(var i=start;i<ei;i++){ var t=ev[i].type; if(t==='steal'||t==='pickoff') busy=true; if(t==='steal'&&String(ev[i].from)==='3'&&ev[i].result==='成功') rbi=true; }
+  if(p){ var b=p.basesBefore||{}; if(b[1]||b[2]||b[3]||b['1']||b['2']||b['3']) busy=true; if(+p.rbi>0||+p.runsThisPlay>0) rbi=true; }
+  if(rbi) busy=true; return (busy?5:0)+(rbi?10:0);
 }
 function rpJumpEi(ei){
   var R=S.replay, e=R&&R.game&&R.game.events[+ei]; if(!e||!e.ts||!S.yt||!S.yt.seekTo) return;
   var sec=replayVideoSec(e.ts); if(sec==null) return;
-  /* 打席結束的那一球照打者規則；一般好壞球 7 秒、界外 8 秒 */
-  var back=e.finalOutcome?rpBack(e):(e.pitchResult==='foul'?8:7);
-  try{ S.yt.seekTo(Math.max(0,sec-back),true); S.yt.playVideo(); }catch(x){}
+  /* 打席結束的那一球照打者規則；一般球 5 秒 */
+  var back=e.finalOutcome?rpBack(e):5;
+  back+=rpPrevLag(R.game.events, +ei);
+  var k=rpSegFor(e.ts-back*1000);
+  if(rpSegs()&&k!==(R.seg||0)){ R.seg=k; rpUseSeg(k, replayVideoSec(e.ts)-back); }
+  else { try{ S.yt.seekTo(Math.max(0,sec-back),true); S.yt.playVideo(); }catch(x){} }
   rpFlash((e.batterName||'')+(e.finalOutcome?' 這個打席':' 這一球'), 0); setTimeout(replayTick, 300);
 }
 function todayPit(name){
@@ -1004,7 +1026,7 @@ function connectRoom(){
   S.room.es=es;
   function take(d, quiet){ if(!d||typeof d!=='object') return;
     if(d.path==='/'){ if(d.data&&typeof d.data==='object'){ S.bulk=true; try{ Object.keys(d.data).sort().forEach(function(k){ var m=d.data[k]; if(m&&m.id) receive(m,false,quiet); }); } finally{ S.bulk=false; }
-        var box=document.getElementById('msgs'); if(box){ box.innerHTML=S.log.slice(-200).map(function(m){ return msgHTML(m,false); }).join(''); box.scrollTop=box.scrollHeight; } renderSide(); } }
+        var box=document.getElementById('msgs'); if(box){ box.innerHTML=S.log.filter(function(x){return x.kind!=='rocket';}).slice(-200).map(function(m){ return msgHTML(m,false); }).join(''); box.scrollTop=box.scrollHeight; } renderSide(); } }
     else if(d.data&&d.data.id) receive(d.data,false,quiet); }
   var first=true;
   es.addEventListener('put',function(ev){ if(S.room.key!==key) return; S.room.state='on'; var d; try{ d=JSON.parse(ev.data); }catch(e){ return; } take(d, first&&d.path==='/'); first=false; });
@@ -1023,12 +1045,14 @@ function publish(m){
   if(bc) bc.postMessage({gid:S.cur?S.cur.id:'', m:m});
 }
 if(bc) bc.onmessage=function(ev){ var d=ev.data||{}; if(!S.cur||d.gid!==S.cur.id) return; receive(d.m,false); };
+/* 聊天留最後 300 則、火箭另外留最後 2000 隻，火箭再多也不會把聊天擠掉 */
+function trimLog(){ var nc=0, nr=0, keep=[]; for(var i=S.log.length-1;i>=0;i--){ var x=S.log[i]; if(x.kind==='rocket'){ if(++nr<=2000) keep.push(x); } else if(++nc<=300) keep.push(x); } if(keep.length<S.log.length) S.log=keep.reverse(); }
 function receive(m, mine, quiet){
   if(!m||!m.id||S.seen[m.id]) return; S.seen[m.id]=1;
   if(isCmd(m)){ applyCmd(m); return; }
   if(m.kind==='chat'&&typeof m.text!=='string') return; if(m.kind==='rocket'&&typeof m.to!=='string') return; if(m.kind==='support'&&!(m.tier>=1&&m.tier<=3)) return;
   if(m.kind==='rocket'){ if(S.rkOff) return; if(!rkAllow(m)) return; rkAdd(m); }   /* 火箭狀態：2 期間的火箭不算 */
-  S.log.push(m); if(S.log.length>300) S.log=S.log.slice(-300);
+  S.log.push(m); trimLog();
   if(!fbOn() && m.kind!=='sys' && m.kind!=='bot') saveJSON(logKey(), S.log.filter(function(x){return (x.kind==='chat'||x.kind==='rocket')&&!x.bot;}));   /* 沒有雲端時才存本機；DEMO 模擬觀眾的訊息不存 */
   if(S.bulk) return;   /* 一次載入大量舊訊息：最後再一起畫 */
   appendMsg(m, mine);
@@ -1075,7 +1099,7 @@ function sendRocket(to){
 }
 function msgHTML(m, mine){
   if(m.kind==='sys') return '<div class="msg sys">'+esc(m.text)+'</div>';
-  if(m.kind==='rocket') return '<div class="msg rk">🚀 '+esc(m.from)+' 給 '+esc(m.to)+' 刷了一排火箭！</div>';
+  if(m.kind==='rocket') return '';   /* 火箭不進聊天室，只播動畫、算進名單 */
   if(m.kind==='support') return '<div class="msg sp">'+esc(thankText(m))+'</div>';
   return '<div class="msg'+(m.from===myName()?' me':'')+(mentionsMe(m)?' tagme':'')+(m.kind==='bot'?' bot':'')+'"><span class="n" data-act="mention" data-name="'+esc(m.from)+'" title="點名字可以 @ 他">'+esc(m.from)+'</span>'+richText(m.text)+'</div>';
 }

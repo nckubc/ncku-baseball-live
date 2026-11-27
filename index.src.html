@@ -185,7 +185,8 @@ input,select{font:inherit;}
 .dbar .nm{width:56px;flex:none;}
 .dbar .bar{flex:1;height:10px;border-radius:5px;background:var(--panel2);overflow:hidden;}
 .dbar .bar i{display:block;height:100%;background:var(--muted);border-radius:5px;}
-.dbar.me .bar i{background:var(--gold);} .dbar.me .nm{color:var(--gold);font-weight:700;}
+.dbar.me .bar i{background:var(--gold);}
+.dsub{font-size:11.5px;color:var(--muted);margin:-2px 0 8px 64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .dbar.me .nm{color:var(--gold);font-weight:700;}
 .pill.onl{cursor:pointer;}
 .sec{font-size:12px;color:var(--muted);margin:10px 4px 6px;display:flex;align-items:center;gap:6px;}
 .sec:first-child{margin-top:2px;}
@@ -1073,7 +1074,7 @@ function uidm(){ return Date.now().toString(36)+Math.random().toString(36).slice
 function publish(m){
   if(S.mode==='replay'){ if(m.kind==='support'){ receive(m,true); } else toast('重播中不能留言或刷火箭'); return; }
   receive(m,true);
-  if(fbOn()&&roomKey()){ var body={id:m.id, kind:m.kind, from:m.from, t:m.t}; ['text','to','g','dept','alum','tier'].forEach(function(k){ if(m[k]!=null) body[k]=m[k]; });
+  if(fbOn()&&roomKey()){ var body={id:m.id, kind:m.kind, from:m.from, t:m.t}; ['text','to','g','dept','alum','tier','ic','fd'].forEach(function(k){ if(m[k]!=null) body[k]=m[k]; });
     fetch(fbBase()+'/live/'+roomKey()+'/log.json',{method:'POST',body:JSON.stringify(body)}).then(function(r){ if(!r.ok) toast('送出失敗，請稍後再試'); }).catch(function(){ toast('網路不穩，送出失敗'); });
     return; }
   if(bc) bc.postMessage({gid:S.cur?S.cur.id:'', m:m});
@@ -1093,7 +1094,9 @@ function receive(m, mine, quiet){
   if(quiet){ if(m.kind==='rocket') renderSide(); return; }   /* 剛進房間載入的舊訊息：只列出，不播特效 */
   if(m.kind==='support'){ scheduleThanks(m); return; }
   birdReact(m.kind);
-  if(m.kind==='rocket'){ renderSide(); rocketFx(m.to, m.from, m.ic); if(m.big&&bigAllow(m)) bigFx(m.from+' '+cheerIc(m.ic)+' '+m.to); }   /* 一般火箭只在聊天室和名單；支持過的人的刷屏火箭才會蓋到影片上 */   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
+  if(m.kind==='rocket'){ renderSide(); var dic=validIc(m.ic, m.to); rocketFx(m.to, m.from, dic);
+    if(dic!=='🚀'){ if(bigAllow(m)) bigFx(m.from+' '+dic+' '+cheerOf(m.to).nm+' → '+m.to); }   /* 系所道具：不用付費解鎖，一律飛過影片右上角 */
+    else if(m.big&&bigAllow(m)) bigFx(m.from+' 🚀 '+m.to); }   /* 一般火箭只在聊天室和名單；支持過的人的刷屏火箭才會蓋到影片上 */   /* 先更新列表再播動畫，動畫才不會被重畫蓋掉 */
   else if(m.kind==='chat'||m.kind==='bot'){ var tm=mentionsMe(m); fly(m.text, mine?'me':(tm?'tagme':'')); if(tm){ toast(m.from+' 提到你'); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(e){} } }
 }
 /* ===== 暱稱（選填）：沒填就用「匿名＋動物」，每台裝置固定一個 ===== */
@@ -1127,7 +1130,7 @@ function send(){
 function sendRocket(to){
   if(S.rkOff){ toast('火箭功能暫時關閉'); return; }
   if(!rkMineOK()) return;
-  var m={id:uidm(), kind:'rocket', from:myName(), to:to, t:Date.now()}, ch=myCheer(); if(ch.d) m.ic=ch.ic;
+  var m={id:uidm(), kind:'rocket', from:myName(), to:to, t:Date.now()}, ch=cheerFor(to); if(ch.d) m.ic=ch.ic; if(myDeptName()) m.fd=myDeptName();   /* fd＝刷的人的系所，算系所應援分 */
   if(bigUse()){ m.big=1; var left=bigLeft(); if(left<=20||left%50===0) toast('刷屏火箭剩 '+left+' 隻'); }
   publish(m);
 }
@@ -1163,10 +1166,12 @@ function fly(text, cls){
 var DEPT_CHEER={'機械':['🔧','扭力'],'電機':['⚡','閃電'],'航太':['✈️','手擲機'],'材料':['🪞','試片'],'化工':['📘','單操課本'],'土木':['🔩','鋼筋'],'光電':['🍞','麵包板'],
   '地科':['🪨','石頭'],'物理':['🐈','薛丁格的貓'],'統計':['🎰','蒙地卡羅'],'醫學':['💉','強心針'],'護理':['🩹','OK繃'],'藥學':['💊','膠囊'],'都計':['🏙️','容積獎勵'],
   '中文':['📜','廣韻'],'法律':['📕','六法全書'],'體健休':['💪','超補償']};
-function cheerIc(ic){ for(var k in DEPT_CHEER) if(DEPT_CHEER[k][0]===ic) return ic; return '🚀'; }
-function myCheer(){ var d=myDeptName(), c=d&&DEPT_CHEER[d]; return c?{ic:c[0], nm:c[1], d:d}:{ic:'🚀', nm:'火箭', d:''}; }
-function rocketBtnTxt(){ var c=myCheer(); return c.ic+' 刷一排'+c.nm; }
-function rocketFx(to, from, ic){ ic=cheerIc(ic);
+/* 只有「幫同系的球員」刷才會變成系所道具；刷其他球員、或沒選系所，都是一般火箭 */
+function cheerOf(to){ var c=DEPT_CHEER[deptOf(to)]; return c?{ic:c[0], nm:c[1], d:deptOf(to)}:null; }
+function cheerFor(to){ var d=myDeptName(), c=cheerOf(to); return d&&c&&c.d===d?c:{ic:'🚀', nm:'火箭', d:''}; }
+function validIc(ic, to){ var c=cheerOf(to); return ic&&c&&c.ic===ic?ic:'🚀'; }   /* 收到的道具要跟被刷球員的系所對得上，否則當一般火箭 */
+function rocketBtnTxt(to){ var c=cheerFor(to); return c.ic+' 刷一排'+c.nm; }
+function rocketFx(to, from, ic){ ic=validIc(ic, to);
   var rows=document.querySelectorAll('.prow[data-name="'+CSS.escape(to)+'"]');
   rows.forEach(function(row){
     if(!row.offsetParent) return;   /* 沒在畫面上（例如手機切到別的分頁）就不畫 */
@@ -1489,8 +1494,8 @@ function mineLabel(n){ var o=myDept(); return o&&o.d==='其他'?'你支持':'同
 function deptTitle(n){ var o=myDept(); return o&&o.d==='其他'?'你支持的 '+n:o.d+'系的 '+n; }
 function setDept(o){ saveJSON('live_dept',o); S.deptLast=null; presBeat(); setTimeout(presCount,800); }
 function maybeAskDept(){
-  if(S.deptAsked||myDept()||S.sheet||!(S.mode==='live'||S.mode==='demo')||!deptList().length) return;
-  S.deptAsked=true; setTimeout(function(){ if(!S.sheet&&!myDept()){ S.sheet={type:'dept'}; renderSheet(); } }, 1200);
+  if(S.deptAsked||S.sheet||!(S.mode==='live'||S.mode==='demo')||!deptList().length) return;
+  S.deptAsked=true; setTimeout(function(){ if(!S.sheet){ S.sheet={type:'dept'}; renderSheet(); } }, 1200);
 }
 function deptSheetHTML(sh){
   var o=myDept()||{}, h;
@@ -1501,10 +1506,10 @@ function deptSheetHTML(sh){
       '</div><div class="row" style="justify-content:space-between"><button class="btn" data-act="dept">← 回系所</button><button class="btn" data-act="close">關閉</button></div>';
     return h;
   }
-  h='<h3>你是哪個系的？</h3><div class="sub">每個系所底下是場上的成大球員。選了之後，<b style="color:var(--gold)">同系的學長姐會在名單上標亮</b>，他們上場時會通知你，還能刷系上專屬的應援道具。</div><div class="dgrid">'+
+  h='<h3>你是哪個系的？</h3><div class="sub"><b style="color:var(--gold);font-size:14.5px">🎉 選系所可以解鎖特色應援系統！</b><br>每個系所底下是場上的成大球員。選了之後，<b style="color:var(--gold)">同系的學長姐會在名單上標亮</b>、上場時通知你；幫他們刷的是<b style="color:var(--gold)">系上專屬道具</b>，會飛過直播畫面右上角。其他球員一樣刷火箭。每次進來都可以重選。</div><div class="dgrid">'+
     deptList().map(function(x){ return '<button data-act="deptPick" data-d="'+esc(x.d)+'"'+(o.d===x.d?' class="on"':'')+'><b>'+(DEPT_CHEER[x.d]?DEPT_CHEER[x.d][0]+' ':'')+esc(x.d)+'</b><small>'+x.ps.map(esc).join('、')+'</small></button>'; }).join('')+
     '<button data-act="deptOther"'+(o.d==='其他'?' class="on"':'')+'><b>其他</b><small>'+(o.d==='其他'&&o.fav?'支持 '+esc(o.fav):'改選一位想支持的球員')+'</small></button></div>'+
-    '<div class="row" style="justify-content:flex-end"><button class="btn" data-act="deptSkip">'+(o.d?'關閉':'先略過')+'</button></div>';
+    '<div class="row" style="justify-content:flex-end;gap:8px">'+(o.d?'<button class="btn" data-act="deptNone">不選系所</button><button class="btn pri" data-act="deptSkip">沿用 '+(o.d==='其他'?'目前設定':esc(o.d))+'</button>':'<button class="btn" data-act="deptSkip">先略過（一般火箭）</button>')+'</div>';
   return h;
 }
 /* 同系球員上場：打擊每個打席提醒；投手每場只提醒一次。剛進來時不提醒 */
@@ -1530,11 +1535,41 @@ function deptCelebrate(t){
     s.style.left=(Math.random()*96)+'%'; s.style.setProperty('--fall',(H+60)+'px'); s.style.setProperty('--rot',(Math.random()*720-360)+'deg');
     s.style.animationDuration=(1.6+Math.random()*1.4)+'s'; s.style.animationDelay=(Math.random()*.6)+'s'; box.appendChild(s); })(i); }
 }
+/* ===== 本場系所榜：球員表現為主（決定名次），觀眾應援為輔（每人有上限） =====
+   打擊：一安 10、二安 15、三安 20、全壘打 30、保送／觸身 5、高犧／犧觸 5、失誤上壘 3，每分打點 +5
+   投球：每個三振 8、其他解決打者 3
+   應援：選了系所的人刷火箭／道具，每排 0.2 分，每人每場最多 3 分 */
+var DS_BAT={'1B':10,'2B':15,'3B':20,'HR':30,'BB':5,'HBP':5,'SF':5,'SH':5,'ROE':3};
+function deptScores(){
+  var sc={}, g=S.cur, x=situation(); if(!g||!x) return sc;
+  function add(d,k,v){ if(!d||!v) return; var o=sc[d]=sc[d]||{p:0,f:0,ev:[]}; o[k]+=v; }
+  var our=x.ourSide;
+  (g.events||[]).forEach(function(e,i){
+    if((e.type!=='pitch'&&e.type!=='battedball')||!e.battingTeam) return;
+    var o=paOut(e); if(!o) return;
+    if(e.battingTeam===our){ var d=deptOf(e.batterName), v=(DS_BAT[o]||0)+5*(+e.rbi||0); if(d&&v){ add(d,'p',v); sc[d].ev.push(e.batterName+' '+(OUT_LBL[o]||'出局')+(+e.rbi>0?'（'+e.rbi+' 打點）':'')+' +'+v); } }
+    else { var r=S.model&&S.model.today.find(function(q){ return q.ei===i; }), pn=r&&r.pit, pd=deptOf(pn), pv=o==='K'?8:((o==='OUT'||o==='SF'||o==='SH')?3:0);
+      if(pd&&pv){ add(pd,'p',pv); if(o==='K') sc[pd].ev.push(pn+' 三振 +8'); } }
+  });
+  var per={}; (S.log||[]).forEach(function(m){ if(m.kind!=='rocket'||typeof m.fd!=='string'||!DEPT_CHEER[m.fd]) return; var k=m.from+'|'+m.fd; per[k]=Math.min(3,(per[k]||0)+0.2); });
+  Object.keys(per).forEach(function(k){ add(k.split('|')[1],'f',per[k]); });
+  if(S.mode==='demo'){ var fake={'機械':2.4,'電機':3,'土木':1.6,'化工':2,'地科':1.2,'法律':.8}; Object.keys(fake).forEach(function(d){ add(d,'f',fake[d]); }); }
+  return sc;
+}
+function deptBoardHTML(){
+  var sc=deptScores(), md=myDeptName(), ks=Object.keys(sc).sort(function(a,b){ return (sc[b].p+sc[b].f)-(sc[a].p+sc[a].f); });
+  if(!ks.length) return '<div class="muted">還沒有系所得分。成大球員打出安打、投出三振就會開始計分。</div>';
+  var mx=Math.max.apply(null, ks.map(function(k){ return sc[k].p+sc[k].f; }))||1;
+  return ks.map(function(k,i){ var o=sc[k], t=Math.round((o.p+o.f)*10)/10, ic=DEPT_CHEER[k]?DEPT_CHEER[k][0]+' ':'';
+    return '<div class="dbar'+(k===md?' me':'')+'"><span class="nm">'+(i<3?['🥇','🥈','🥉'][i]:'')+esc(k)+'</span><span class="bar"><i style="width:'+Math.round((o.p+o.f)/mx*100)+'%"></i></span><b>'+t+'</b></div>'+
+      '<div class="dsub">'+ic+'球員 '+o.p+' ＋ 應援 '+(Math.round(o.f*10)/10)+(o.ev.length?' · '+esc(o.ev.slice(-3).join('、')):'')+'</div>'; }).join('');
+}
 function onlineSheetHTML(){
   var c=S.deptOnline||{}, demo=S.mode==='demo', md=myDeptName();
   if(demo){ c={}; var base={'機械':9,'電機':12,'土木':5,'航太':4,'地科':6,'醫學':3,'化工':4,'都計':2,'其他':7}; Object.keys(base).forEach(function(k){ c[k]=base[k]; }); if(md) c[md]=(c[md]||0)+1; }
   var ks=Object.keys(c).filter(function(k){ return c[k]>0; }).sort(function(a,b){ return c[b]-c[a]; }), mx=ks.length?c[ks[0]]:1, tot=0; ks.forEach(function(k){ tot+=c[k]; });
-  var h='<h3>現在誰在看</h3><div class="sub">'+(demo?'DEMO 為模擬數字 · ':'')+'目前 '+(demo?tot:S.online)+' 人在線上'+(md?'，你是 <b style="color:var(--gold)">'+esc(md)+'</b>':'')+'</div>';
+  var h='<h3>🏆 本場系所榜</h3><div class="sub">名次主要看<b style="color:var(--gold)">同系球員的場上表現</b>（安打、打點、三振）；選了系所的人刷火箭也會幫系上加一點分（每人每場最多 3 分）。'+(demo?'DEMO 的應援分為模擬數字。':'')+'</div>'+deptBoardHTML()+
+    '<h3 style="margin-top:16px;font-size:16px">現在誰在看</h3><div class="sub">'+(demo?'DEMO 為模擬數字 · ':'')+'目前 '+(demo?tot:S.online)+' 人在線上'+(md?'，你是 <b style="color:var(--gold)">'+esc(md)+'</b>':'')+'</div>';
   h+=ks.length?ks.map(function(k){ return '<div class="dbar'+(k===md?' me':'')+'"><span class="nm">'+esc(k)+'</span><span class="bar"><i style="width:'+Math.round(c[k]/mx*100)+'%"></i></span><b>'+c[k]+'</b></div>'; }).join(''):'<div class="muted">還沒有人選系所</div>';
   return h+'<div class="row" style="margin-top:12px;justify-content:space-between"><button class="btn" data-act="dept">'+(md||myDept()?'改我的系所':'選我的系所')+'</button><button class="btn" data-act="close">關閉</button></div>';
 }
@@ -1568,7 +1603,7 @@ function renderSide(){
   var team=x.g.teams[x.ourSide]||{lineup:[],bench:[]}, LL=liveLineup(x.g, x.ourSide), lu=LL.lineup, rc=rocketCounts().to;
   var idx=LL.ptr; if(idx==null||idx<0) idx=-1;
   function rkTxt(n){ return rc[n]?'🚀×'+rc[n]:''; }
-  var h=lineScoreHTML(x)+lastPitchHTML(x)+'<div class="sec">打序'+(x.weBat?'　<span class="tag hot">進攻中</span>':'　<span class="tag">守備中</span>')+'<span class="sp" style="flex:1"></span>'+(deptList().length?'<button class="tag dsel'+(myDept()&&myDept().d?' mine':'')+'" data-act="dept">'+(myDept()&&myDept().d?(myDeptName()?esc(myDeptName())+'系應援 ✎':'支持 '+esc(myDept().fav||'')+' ✎'):'選我的系所 ›')+'</button>':'')+'</div>';
+  var h=lineScoreHTML(x)+lastPitchHTML(x)+'<div class="sec">打序'+(x.weBat?'　<span class="tag hot">進攻中</span>':'　<span class="tag">守備中</span>')+'<span class="sp" style="flex:1"></span>'+(deptList().length?'<button class="tag dsel" data-act="online">🏆 系所榜</button> ':'')+(deptList().length?'<button class="tag dsel'+(myDept()&&myDept().d?' mine':'')+'" data-act="dept">'+(myDept()&&myDept().d?(myDeptName()?esc(myDeptName())+'系應援 ✎':'支持 '+esc(myDept().fav||'')+' ✎'):'選我的系所 ›')+'</button>':'')+'</div>';
   lu.forEach(function(p,i){
     if(!p){ h+='<div class="prow dim"><span class="ord">'+(i+1)+'</span><span class="num"></span><span class="mid"><span class="nm muted">—</span></span><span></span></div>'; return; } var tb=todayBat(p.name), cur=x.weBat&&i===idx, next=(x.weBat?(idx+1)%lu.length:idx)===i;
     var mn=isMine(p.name);
@@ -1640,7 +1675,7 @@ function renderSheet(){
     var pi=pinfo(sh.name); if(pi&&pi.hr) h=h.replace('</h3>','<span class="hrchip">本季 '+pi.hr+' 轟</span></h3>');
     if(pi&&(pi.dept||pi.school||pi.intro)) h+='<div class="pintro">'+((pi.dept||pi.school)?'<div class="dept">'+esc([pi.dept,pi.school].filter(Boolean).join(' · '))+'</div>':'')+(pi.intro?'<div class="intro">'+esc(pi.intro)+'</div>':'')+'</div>';
     if(!sh.view){
-      h+='<div class="bigbtns three"><button data-act="pstats">球員數據</button><button class="rocket'+(S.rkOff?' off':'')+'" data-act="rocket" data-name="'+esc(sh.name)+'">'+(S.rkOff?'火箭暫停中':rocketBtnTxt())+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button><button data-act="supportP" data-name="'+esc(sh.name)+'">支持乙棒</button></div>'+'<div class="freenote">'+(myCheer().d?esc(myCheer().d)+'系專屬'+myCheer().ic+esc(myCheer().nm)+'，一排算一個火箭。':'')+'🚀 火箭免費，不用錢，想刷幾排都可以！</div>';
+      h+='<div class="bigbtns three"><button data-act="pstats">球員數據</button><button class="rocket'+(S.rkOff?' off':'')+'" data-act="rocket" data-name="'+esc(sh.name)+'">'+(S.rkOff?'火箭暫停中':rocketBtnTxt(sh.name))+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button><button data-act="supportP" data-name="'+esc(sh.name)+'">支持乙棒</button></div>'+'<div class="freenote">'+(cheerFor(sh.name).d?'同系專屬 '+cheerFor(sh.name).ic+esc(cheerFor(sh.name).nm)+'，會飛過直播畫面右上角，一排算一個火箭。':'')+'🚀 火箭免費，不用錢，想刷幾排都可以！</div>';
     } else {
       var st=(pinfo(sh.name)||{}).stats||null, meta=PLAYERS._stats||{};
       function kvBlock(title, o){ var ks=o?Object.keys(o):[]; if(!ks.length) return ''; return '<div class="muted" style="margin-top:8px">'+esc(title)+'</div><div class="kv">'+ks.map(function(k){ return '<div'+(k==='全壘打'&&+o[k]>0?' class="hl"':'')+'><div class="k">'+esc(k)+'</div><div class="v">'+esc(String(o[k]))+'</div></div>'; }).join('')+'</div>'; }
@@ -1651,7 +1686,7 @@ function renderSheet(){
       var snap=''; if(st){ if(asP&&st.pit) snap=kvBlock(meta.pitTitle||'賽前投球', st.pit); else if(st.bat) snap=kvBlock(meta.batTitle||'賽前打擊', st.bat); else snap=kvBlock(meta.pitTitle||'賽前投球', st.pit); }
       h+=snap||'<div class="muted" style="margin-top:8px">賽前數據整理中</div>';
       h+='<p class="muted" style="font-size:12px;line-height:1.5">'+esc(meta.note||'數據統計至大專盃開賽前。賽事期間的數據可能影響比賽，暫不公開。')+'</p>'+
-        '<div class="bigbtns"><button data-act="pback">返回</button><button class="rocket'+(S.rkOff?' off':'')+'" data-act="rocket" data-name="'+esc(sh.name)+'">'+(S.rkOff?'火箭暫停中':rocketBtnTxt())+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button></div>';
+        '<div class="bigbtns"><button data-act="pback">返回</button><button class="rocket'+(S.rkOff?' off':'')+'" data-act="rocket" data-name="'+esc(sh.name)+'">'+(S.rkOff?'火箭暫停中':rocketBtnTxt(sh.name))+(bigLeft()?'<small class="bigleft">刷屏 剩 '+bigLeft()+'</small>':'')+'</button></div>';
     }
     h+='<div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn" data-act="close">關閉</button></div>';
   } else if(sh.type==='dept'){ h+=deptSheetHTML(sh);
@@ -1753,6 +1788,7 @@ document.addEventListener('click',function(ev){
   else if(a==='deptPick'){ setDept({d:t.dataset.d}); S.sheet=null; render(); toast(t.dataset.d+'系應援！同系學長姐已在名單上標亮'); }
   else if(a==='deptOther'){ S.sheet={type:'dept', view:'fav'}; renderSheet(); }
   else if(a==='deptFav'){ setDept({d:'其他', fav:t.dataset.name}); S.sheet=null; render(); toast('支持 '+t.dataset.name+'！他上場時會通知你'); }
+  else if(a==='deptNone'){ setDept({d:''}); S.sheet=null; render(); toast('已取消系所，刷的都是一般火箭'); }
   else if(a==='deptSkip'){ if(!myDept()) saveJSON('live_dept',{d:''}); S.sheet=null; render(); }
   else if(a==='stats'){ S.sheet={type:'stats'}; renderSheet(); }
   else if(a==='saveNick'){ var v=(document.getElementById('nick-in').value||'').trim().slice(0,12); if(!v) return; S.cfg.nick=v; saveJSON(CFG_KEY,S.cfg); S.sheet=null; renderSheet(); var ci=document.getElementById('chat-in'); if(ci) ci.placeholder='以「'+v+'」留言…'; var cb=nickCb; nickCb=null; if(cb) cb(); }
